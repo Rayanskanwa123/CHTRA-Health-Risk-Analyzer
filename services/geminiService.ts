@@ -1,3 +1,4 @@
+
 import { GoogleGenAI } from "@google/genai";
 import type { UserInput, ReportData, ParsedReport } from '../types';
 
@@ -6,7 +7,8 @@ const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 const parseReportFromText = (text: string): ParsedReport | null => {
   // Try to find JSON inside markdown block first
-  const jsonBlockRegex = /```json\s*([\s\S]*?)\s*```/;
+  // Improved regex: Case insensitive, optional 'json' tag, lazy match content
+  const jsonBlockRegex = /```(?:json)?\s*([\s\S]*?)\s*```/i;
   const match = text.match(jsonBlockRegex);
 
   if (match && match[1]) {

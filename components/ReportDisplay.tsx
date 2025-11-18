@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React from 'react';
 import { SpinnerIcon } from './icons/SpinnerIcon';
 import type { ReportData, ParsedReport } from '../types';
 import { MicroscopeIcon } from './icons/MicroscopeIcon';
@@ -37,8 +37,6 @@ const FormattedReport: React.FC<{ report: string }> = ({ report }) => {
 }
 
 const StructuredReport: React.FC<{ data: ParsedReport }> = ({ data }) => {
-    const [facilitySearch, setFacilitySearch] = useState('');
-
     const riskColors = {
         CRITICAL: { bg: 'bg-red-900/50', border: 'border-red-700', text: 'text-red-300' },
         HIGH: { bg: 'bg-orange-900/50', border: 'border-orange-700', text: 'text-orange-300' },
@@ -55,11 +53,6 @@ const StructuredReport: React.FC<{ data: ParsedReport }> = ({ data }) => {
         if (confidence > 0.4) return 'bg-yellow-500';
         return 'bg-green-500';
     }
-
-    const filteredFacilities = data.facilities.filter(facility => 
-        facility['Facility Name'].toLowerCase().includes(facilitySearch.toLowerCase()) ||
-        facility['Location / Address'].toLowerCase().includes(facilitySearch.toLowerCase())
-    );
 
     return (
         <div className="space-y-6">
@@ -131,16 +124,57 @@ const StructuredReport: React.FC<{ data: ParsedReport }> = ({ data }) => {
 
             <div>
                 <h4 className="text-lg font-bold text-cyan-400 mb-3">Recommended Medical Facilities</h4>
-                
-                <div className="mb-4 relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                        </svg>
-                    </div>
-                    <input
-                        type="text"
-                        className="bg-slate-900 border border-slate-700 text-slate-300 text-sm rounded-md focus:ring-cyan-500 focus:border-cyan-500 block w-full pl-10 p-2.5 placeholder-slate-500"
-                        placeholder="Search facilities by name or location..."
-                        value={facilitySearch}
-                        onChange={(e) =>
+                <div className="overflow-x-auto">
+                    <table className="w-full text-sm text-left text-slate-400">
+                        <thead className="text-xs text-cyan-400 uppercase bg-slate-700/50">
+                            <tr>
+                                <th scope="col" className="px-4 py-2">Facility Name</th>
+                                <th scope="col" className="px-4 py-2">Location</th>
+                                <th scope="col" className="px-4 py-2">Priority</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {data.facilities.map((facility, index) => (
+                                <tr key={index} className="border-b border-slate-700 hover:bg-slate-800">
+                                    <td className="px-4 py-2 font-medium text-white whitespace-nowrap">{facility['Facility Name']}</td>
+                                    <td className="px-4 py-2">{facility['Location / Address']}</td>
+                                    <td className="px-4 py-2">{facility['Priority Level']}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+        </div>
+    )
+}
+
+
+export const ReportDisplay: React.FC<{ report: ReportData | null; isLoading: boolean; error: string | null; }> = ({ report, isLoading, error }) => {
+  return (
+    <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-6 shadow-lg min-h-[500px] flex flex-col">
+       <h2 className="text-2xl font-bold text-white mb-4 flex-shrink-0">CHTRA Analysis Report</h2>
+      <div className="flex-grow overflow-y-auto pr-2">
+        {isLoading && (
+          <div className="flex flex-col items-center justify-center h-full text-slate-400">
+            <SpinnerIcon className="w-8 h-8 mb-4" />
+            <p className="text-lg">Synthesizing data from all modules...</p>
+            <p className="text-sm text-slate-500">This may take a moment.</p>
+          </div>
+        )}
+        {error && (
+          <div className="flex items-center justify-center h-full bg-red-900/20 border border-red-700 text-red-300 rounded-md p-4">
+            <p><strong>Error:</strong> {error}</p>
+          </div>
+        )}
+        {!isLoading && !error && !report && <Placeholder />}
+        {report && (
+            report.parsedReport 
+                ? <StructuredReport data={report.parsedReport} />
+                : <FormattedReport report={report.textReport} />
+        )}
+      </div>
+    </div>
+  );
+};

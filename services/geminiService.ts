@@ -2,42 +2,32 @@
 import { GoogleGenAI } from "@google/genai";
 import type { UserInput, ReportData, ParsedReport } from '../types';
 
-// The API key is strictly obtained from the environment variable.
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+if (!process.env.API_KEY) {
+  // This is a placeholder check. The actual key is expected to be in the environment.
+  console.warn("API_KEY environment variable not set. Using a placeholder.");
+}
+
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
 
 const parseReportFromText = (text: string): ParsedReport | null => {
-  // Try to find JSON inside markdown block first
-  // Improved regex: Case insensitive, optional 'json' tag, lazy match content
-  const jsonBlockRegex = /```(?:json)?\s*([\s\S]*?)\s*```/i;
+  const jsonBlockRegex = /```json\s*([\s\S]*?)\s*```/;
   const match = text.match(jsonBlockRegex);
 
   if (match && match[1]) {
     try {
       const parsedJson = JSON.parse(match[1]);
+      // Assuming the structure is {"parsed": {...}}
       if (parsedJson.parsed) {
         return parsedJson.parsed as ParsedReport;
       }
-      // If the root is the object itself (fallback)
-      if (parsedJson.riskLevel) {
-        return parsedJson as ParsedReport;
-      }
     } catch (e) {
-      console.error("Failed to parse JSON from code block:", e);
+      console.error("Failed to parse JSON from report:", e);
+      return null;
     }
   }
-
-  // Fallback: Try to parse the whole text as JSON (if model didn't use markdown)
-  try {
-    const parsedJson = JSON.parse(text);
-    if (parsedJson.parsed) {
-      return parsedJson.parsed as ParsedReport;
-    }
-  } catch (e) {
-    // Expected if text is narrative
-  }
-
   return null;
 }
+
 
 export const generateHealthReport = async (userInput: UserInput): Promise<ReportData> => {
   const { state, lga, symptoms, ageGroup, preExistingConditions, context } = userInput;
@@ -49,6 +39,7 @@ export const generateHealthReport = async (userInput: UserInput): Promise<Report
   const demographics = `Age Group: ${ageGroup || 'Not specified'}. Pre-existing Conditions: ${preExistingConditions || 'None specified'}.`;
   
   const formattedContext = `Selected Factors: ${context.factors.length > 0 ? context.factors.join(', ') : 'None selected'}. Additional Notes: ${context.notes || 'None'}`;
+
 
   const prompt = `
     SYSTEM INSTRUCTION / PERSONA
@@ -101,7 +92,415 @@ export const generateHealthReport = async (userInput: UserInput): Promise<Report
     "Pneumonia","Keep patient warm, ensure open airway; give oxygen if available for low SpO2; antibiotics per guideline for bacterial pneumonia","If breathing >30/min in adults or severe distress — urgent referral","Vaccination (where available), reduce indoor smoke exposure"
 
     MODULE 3: ENVIRONMENTAL CONTEXT DATASET (NIGERIA)
-    (Data implied from context provided in user input and internal knowledge of Nigerian geography for the selected state/LGA)
+    State,LGA,EnvironmentalContext
+    Abia,Aba North,Urban
+    Abia,Aba South,Urban
+    Abia,Arochukwu,Rural
+    Abia,Bende,Rural
+    Abia,Ikwuano,Semi-Urban
+    Abia,Isiala Ngwa North,Semi-Urban
+    Abia,Isiala Ngwa South,Semi-Urban
+    Abia,Isuikwuato,Rural
+    Abia,Obi Ngwa,Rural
+    Abia,Ohafia,Rural
+    Abia,Osisioma,Industrial Zone
+    Abia,Ugwunagbo,Semi-Urban
+    Abia,Ukwa East,Coastal Area
+    Abia,Ukwa West,Coastal Area
+    Abia,Umuahia North,Urban
+    Abia,Umuahia South,Urban
+    Abia,Umunneochi,Rural
+    Adamawa,Demsa,Flood-Prone Area
+    Adamawa,Fufore,Rural
+    Adamawa,Ganye,Rural
+    Adamawa,Girei,Semi-Urban
+    Adamawa,Gombi,Rural
+    Adamawa,Guyuk,Rural
+    Adamawa,Hong,Rural
+    Adamawa,Jada,Rural
+    Adamawa,Lamurde,Flood-Prone Area
+    Adamawa,Madagali,Arid Area
+    Adamawa,Maiha,Rural
+    Adamawa,Mayo Belwa,Rural
+    Adamawa,Michika,Rural
+    Adamawa,Mubi North,Urban
+    Adamawa,Mubi South,Urban
+    Adamawa,Numan,Flood-Prone Area
+    Adamawa,Shelleng,Rural
+    Adamawa,Song,Rural
+    Adamawa,Toungo,Rural
+    Adamawa,Yola North,Urban
+    Adamawa,Yola South,Urban
+    Akwa Ibom,Abak,Semi-Urban
+    Akwa Ibom,Eastern Obolo,Coastal Area
+    Akwa Ibom,Eket,Urban
+    Akwa Ibom,Esit Eket,Coastal Area
+    Akwa Ibom,Essien Udim,Rural
+    Akwa Ibom,Etim Ekpo,Rural
+    Akwa Ibom,Etinan,Semi-Urban
+    Akwa Ibom,Ibeno,Coastal Area
+    Akwa Ibom,Ibesikpo Asutan,Semi-Urban
+    Akwa Ibom,Ibiono-Ibom,Rural
+    Akwa Ibom,Ika,Rural
+    Akwa Ibom,Ikono,Rural
+    Akwa Ibom,Ikot Abasi,Industrial Zone
+    Akwa Ibom,Ikot Ekpene,Urban
+    Akwa Ibom,Ini,Rural
+    Akwa Ibom,Itu,Semi-Urban
+    Akwa Ibom,Mbo,Coastal Area
+    Akwa Ibom,Mkpat-Enin,Coastal Area
+    Akwa Ibom,Nsit-Atai,Rural
+    Akwa Ibom,Nsit-Ibom,Rural
+    Akwa Ibom,Nsit-Ubium,Rural
+    Akwa Ibom,Obot Akara,Rural
+    Akwa Ibom,Okobo,Coastal Area
+    Akwa Ibom,Onna,Semi-Urban
+    Akwa Ibom,Oron,Coastal Area
+    Akwa Ibom,Oruk Anam,Rural
+    Akwa Ibom,Udung-Uko,Coastal Area
+    Akwa Ibom,Ukanafun,Rural
+    Akwa Ibom,Uruan,Semi-Urban
+    Akwa Ibom,Urue-Offong/Oruko,Coastal Area
+    Akwa Ibom,Uyo,Urban
+    Anambra,Aguata,Semi-Urban
+    Anambra,Anambra East,Flood-Prone Area
+    Anambra,Anambra West,Flood-Prone Area
+    Anambra,Anaocha,Rural
+    Anambra,Awka North,Rural
+    Anambra,Awka South,Urban
+    Anambra,Ayamelum,Flood-Prone Area
+    Anambra,Dunukofia,Rural
+    Anambra,Ekwusigo,Semi-Urban
+    Anambra,Idemili North,Industrial Zone
+    Anambra,Idemili South,Industrial Zone
+    Anambra,Ihiala,Rural
+    Anambra,Njikoka,Semi-Urban
+    Anambra,Nnewi North,Industrial Zone
+    Anambra,Nnewi South,Industrial Zone
+    Anambra,Ogbaru,Flood-Prone Area
+    Anambra,Onitsha North,Urban
+    Anambra,Onitsha South,Urban
+    Anambra,Orumba North,Rural
+    Anambra,Orumba South,Rural
+    Anambra,Oyi,Semi-Urban
+    Bauchi,Alkaleri,Rural
+    Bauchi,Bauchi,Urban
+    Bauchi,Bogoro,Rural
+    Bauchi,Damban,Rural
+    Bauchi,Darazo,Arid Area
+    Bauchi,Dass,Rural
+    Bauchi,Gamawa,Arid Area
+    Bauchi,Ganjuwa,Rural
+    Bauchi,Giade,Rural
+    Bauchi,Itas/Gadau,Rural
+    Bauchi,Jama'are,Rural
+    Bauchi,Katagum,Rural
+    Bauchi,Kirfi,Rural
+    Bauchi,Misau,Rural
+    Bauchi,Ningi,Rural
+    Bauchi,Shira,Rural
+    Bauchi,Tafawa Balewa,Rural
+    Bauchi,Toro,Rural
+    Bauchi,Warji,Rural
+    Bauchi,Zaki,Rural
+    Bayelsa,Brass,Coastal Area
+    Bayelsa,Ekeremor,Coastal Area
+    Bayelsa,Kolokuma/Opokuma,Flood-Prone Area
+    Bayelsa,Nembe,Coastal Area
+    Bayelsa,Ogbia,Coastal Area
+    Bayelsa,Sagbama,Flood-Prone Area
+    Bayelsa,Southern Ijaw,Coastal Area
+    Bayelsa,Yenagoa,Urban
+    Benue,Ado,Rural
+    Benue,Agatu,Flood-Prone Area
+    Benue,Apa,Rural
+    Benue,Buruku,Rural
+    Benue,Gboko,Urban
+    Benue,Guma,Rural
+    Benue,Gwer East,Rural
+    Benue,Gwer West,Rural
+    Benue,Katsina-Ala,Rural
+    Benue,Konshisha,Rural
+    Benue,Kwande,Rural
+    Benue,Logo,Rural
+    Benue,Makurdi,Urban
+    Benue,Obi,Rural
+    Benue,Ogbadibo,Rural
+    Benue,Ohimini,Rural
+    Benue,Oju,Rural
+    Benue,Okpokwu,Rural
+    Benue,Otukpo,Urban
+    Benue,Tarka,Rural
+    Benue,Ukum,Rural
+    Benue,Ushongo,Rural
+    Benue,Vandeikya,Rural
+    Borno,Abadam,Arid Area
+    Borno,Askira/Uba,Arid Area
+    Borno,Bama,Arid Area
+    Borno,Bayo,Arid Area
+    Borno,Biu,Arid Area
+    Borno,Chibok,Arid Area
+    Borno,Damboa,Arid Area
+    Borno,Dikwa,Arid Area
+    Borno,Gubio,Arid Area
+    Borno,Guzamala,Arid Area
+    Borno,Gwoza,Arid Area
+    Borno,Hawul,Arid Area
+    Borno,Jere,Urban
+    Borno,Kaga,Arid Area
+    Borno,Kala/Balge,Arid Area
+    Borno,Konduga,Arid Area
+    Borno,Kukawa,Arid Area
+    Borno,Kwaya Kusar,Arid Area
+    Borno,Mafa,Arid Area
+    Borno,Magumeri,Arid Area
+    Borno,Maiduguri,Urban
+    Borno,Marte,Arid Area
+    Borno,Mobbar,Arid Area
+    Borno,Monguno,Arid Area
+    Borno,Ngala,Arid Area
+    Borno,Nganzai,Arid Area
+    Borno,Shani,Arid Area
+    Cross River,Abi,Rural
+    Cross River,Akamkpa,Rural
+    Cross River,Akpabuyo,Coastal Area
+    Cross River,Bakassi,Coastal Area
+    Cross River,Bekwarra,Rural
+    Cross River,Biase,Rural
+    Cross River,Boki,Rural
+    Cross River,Calabar Municipal,Urban
+    Cross River,Calabar South,Urban
+    Cross River,Etung,Rural
+    Cross River,Ikom,Urban
+    Cross River,Obanliku,Rural
+    Cross River,Obubra,Rural
+    Cross River,Obudu,Rural
+    Cross River,Odukpani,Semi-Urban
+    Cross River,Ogoja,Urban
+    Cross River,Yakuur,Rural
+    Cross River,Yala,Rural
+    Delta,Aniocha North,Rural
+    Delta,Aniocha South,Semi-Urban
+    Delta,Bomadi,Flood-Prone Area
+    Delta,Burutu,Coastal Area
+    Delta,Ethiope East,Semi-Urban
+    Delta,Ethiope West,Semi-Urban
+    Delta,Ika North East,Semi-Urban
+    Delta,Ika South,Semi-Urban
+    Delta,Isoko North,Semi-Urban
+    Delta,Isoko South,Semi-Urban
+    Delta,Ndokwa East,Flood-Prone Area
+    Delta,Ndokwa West,Flood-Prone Area
+    Delta,Okpe,Semi-Urban
+    Delta,Oshimili North,Urban
+    Delta,Oshimili South,Urban
+    Delta,Patani,Coastal Area
+    Delta,Sapele,Industrial Zone
+    Delta,Udu,Industrial Zone
+    Delta,Ughelli North,Urban
+    Delta,Ughelli South,Urban
+    Delta,Ukwuani,Flood-Prone Area
+    Delta,Uvwie,Industrial Zone
+    Delta,Warri North,Coastal Area
+    Delta,Warri South,Urban
+    Delta,Warri South West,Coastal Area
+    Ebonyi,Abakaliki,Urban
+    Ebonyi,Afikpo North,Urban
+    Ebonyi,Afikpo South,Semi-Urban
+    Ebonyi,Ebonyi,Rural
+    Ebonyi,Ezza North,Rural
+    Ebonyi,Ezza South,Rural
+    Ebonyi,Ikwo,Rural
+    Ebonyi,Ishielu,Rural
+    Ebonyi,Ivo,Rural
+    Ebonyi,Izzi,Rural
+    Ebonyi,Ohaozara,Rural
+    Ebonyi,Ohaukwu,Rural
+    Ebonyi,Onicha,Semi-Urban
+    Edo,Akoko-Edo,Rural
+    Edo,Egor,Urban
+    Edo,Esan Central,Rural
+    Edo,Esan North-East,Rural
+    Edo,Esan South-East,Rural
+    Edo,Esan West,Rural
+    Edo,Etsako Central,Rural
+    Edo,Etsako East,Rural
+    Edo,Etsako West,Semi-Urban
+    Edo,Igueben,Rural
+    Edo,Ikpoba-Okha,Urban
+    Edo,Oredo,Urban
+    Edo,Orhionmwon,Rural
+    Edo,Ovia North-East,Rural
+    Edo,Ovia South-West,Rural
+    Edo,Owan East,Rural
+    Edo,Owan West,Rural
+    Edo,Uhunmwonde,Rural
+    Ekiti,Ado Ekiti,Urban
+    Ekiti,Efon,Rural
+    Ekiti,Ekiti East,Rural
+    Ekiti,Ekiti South-West,Rural
+    Ekiti,Ekiti West,Rural
+    Ekiti,Emure,Rural
+    Ekiti,Gbonyin,Rural
+    Ekiti,Ido Osi,Rural
+    Ekiti,Ijero,Rural
+    Ekiti,Ikere,Semi-Urban
+    Ekiti,Ikole,Rural
+    Ekiti,Ilejemeje,Rural
+    Ekiti,Irepodun/Ifelodun,Rural
+    Ekiti,Ise/Orun,Rural
+    Ekiti,Moba,Rural
+    Ekiti,Oye,Rural
+    Enugu,Aninri,Rural
+    Enugu,Awgu,Rural
+    Enugu,Enugu East,Urban
+    Enugu,Enugu North,Urban
+    Enugu,Enugu South,Urban
+    Enugu,Ezeagu,Rural
+    Enugu,Igbo Etiti,Rural
+    Enugu,Igbo Eze North,Rural
+    Enugu,Igbo Eze South,Rural
+    Enugu,Isi Uzo,Rural
+    Enugu,Nkanu East,Rural
+    Enugu,Nkanu West,Rural
+    Enugu,Nsukka,Urban
+    Enugu,Oji River,Semi-Urban
+    Enugu,Udenu,Rural
+    Enugu,Udi,Semi-Urban
+    Enugu,Uzo Uwani,Rural
+    Gombe,Akko,Rural
+    Gombe,Balanga,Rural
+    Gombe,Billiri,Rural
+    Gombe,Dukku,Rural
+    Gombe,Funakaye,Arid Area
+    Gombe,Gombe,Urban
+    Gombe,Kaltungo,Rural
+    Gombe,Kwami,Rural
+    Gombe,Nafada,Rural
+    Gombe,Shongom,Rural
+    Gombe,Yamaltu/Deba,Rural
+    Imo,Aboh Mbaise,Rural
+    Imo,Ahiazu Mbaise,Rural
+    Imo,Ehime Mbano,Rural
+    Imo,Ezinihitte,Rural
+    Imo,Ideato North,Rural
+    Imo,Ideato South,Rural
+    Imo,Ihitte/Uboma,Rural
+    Imo,Ikeduru,Rural
+    Imo,Isiala Mbano,Rural
+    Imo,Isu,Rural
+    Imo,Mbaitoli,Semi-Urban
+    Imo,Ngor Okpala,Rural
+    Imo,Njaba,Rural
+    Imo,Nkwerre,Rural
+    Imo,Nwangele,Rural
+    Imo,Obowo,Rural
+    Imo,Oguta,Flood-Prone Area
+    Imo,Ohaji/Egbema,Rural
+    Imo,Okigwe,Urban
+    Imo,Orlu,Urban
+    Imo,Orsu,Rural
+    Imo,Oru East,Rural
+    Imo,Oru West,Rural
+    Imo,Owerri Municipal,Urban
+    Imo,Owerri North,Semi-Urban
+    Imo,Owerri West,Semi-Urban
+    Imo,Unuimo,Rural
+    Jigawa,Auyo,Arid Area
+    Jigawa,Babura,Arid Area
+    Jigawa,Biriniwa,Arid Area
+    Jigawa,Birnin Kudu,Arid Area
+    Jigawa,Buji,Arid Area
+    Jigawa,Dutse,Urban
+    Jigawa,Gagarawa,Arid Area
+    Jigawa,Garki,Arid Area
+    Jigawa,Gumel,Urban
+    Jigawa,Guri,Arid Area
+    Jigawa,Gwaram,Arid Area
+    Jigawa,Gwiwa,Arid Area
+    Jigawa,Hadejia,Urban
+    Jigawa,Jahun,Arid Area
+    Jigawa,Kafin Hausa,Arid Area
+    Jigawa,Kazaure,Arid Area
+    Jigawa,Kiri Kasama,Arid Area
+    Jigawa,Kiyawa,Arid Area
+    Jigawa,Maigatari,Arid Area
+    Jigawa,Malam Madori,Arid Area
+    Jigawa,Miga,Arid Area
+    Jigawa,Ringim,Arid Area
+    Jigawa,Roni,Arid Area
+    Jigawa,Sule Tankarkar,Arid Area
+    Jigawa,Taura,Arid Area
+    Jigawa,Yankwashi,Arid Area
+    Kaduna,Birnin Gwari,Rural
+    Kaduna,Chikun,Semi-Urban
+    Kaduna,Giwa,Rural
+    Kaduna,Igabi,Semi-Urban
+    Kaduna,Ikara,Rural
+    Kaduna,Jaba,Rural
+    Kaduna,Jema'a,Rural
+    Kaduna,Kachia,Rural
+    Kaduna,Kaduna North,Urban
+    Kaduna,Kaduna South,Urban
+    Kaduna,Kagarko,Rural
+    Kaduna,Kajuru,Rural
+    Kaduna,Kaura,Rural
+    Kaduna,Kauru,Rural
+    Kaduna,Kubau,Rural
+    Kaduna,Kudan,Rural
+    Kaduna,Lere,Rural
+    Kaduna,Makarfi,Rural
+    Kaduna,Sabon Gari,Urban
+    Kaduna,Sanga,Rural
+    Kaduna,Soba,Rural
+    Kaduna,Zangon Kataf,Rural
+    Kaduna,Zaria,Urban
+    Kano,Ajingi,Arid Area
+    Kano,Albasu,Arid Area
+    Kano,Bagwai,Arid Area
+    Kano,Bebeji,Arid Area
+    Kano,Bichi,Arid Area
+    Kano,Bunkure,Arid Area
+    Kano,Dala,Urban
+    Kano,Dambatta,Arid Area
+    Kano,Dawakin Kudu,Arid Area
+    Kano,Dawakin Tofa,Arid Area
+    Kano,Doguwa,Arid Area
+    Kano,Fagge,Urban
+    Kano,Gabasawa,Arid Area
+    Kano,Garko,Arid Area
+    Kano,Garum,Arid Area
+    Kano,Mallam,Arid Area
+    Kano,Gaya,Arid Area
+    Kano,Gezawa,Arid Area
+    Kano,Gwale,Urban
+    Kano,Gwarzo,Arid Area
+    Kano,Kabo,Arid Area
+    Kano,Kano Municipal,Urban
+    Kano,Karaye,Arid Area
+    Kano,Kibiya,Arid Area
+    Kano,Kiru,Arid Area
+    Kano,Kumbotso,Urban
+    Kano,Kunchi,Arid Area
+    Kano,Kura,Arid Area
+    Kano,Madobi,Arid Area
+    Kano,Makoda,Arid Area
+    Kano,Minjibir,Arid Area
+    Kano,Nassarawa,Urban
+    Kano,Rano,Arid Area
+    Kano,Rimin Gado,Arid Area
+    Kano,Rogo,Arid Area
+    Kano,Shanono,Arid Area
+    Kano,Sumaila,Arid Area
+    Kano,Takai,Arid Area
+    Kano,Tarauni,Urban
+    Kano,Tofa,Arid Area
+    Kano,Tsanyawa,Arid Area
+    Kano,Tudun Wada,Arid Area
+    Kano,Ungogo,Urban
+    Kano,Warawa,Arid Area
+    Kano,Wudil,Arid Area
+    Katsina,Bakori,Arid Area
     
     --- OUTPUT INSTRUCTIONS ---
     1. Provide a comprehensive, empathetic, and clear text-based risk assessment first. This should be human-readable.
@@ -119,24 +518,19 @@ export const generateHealthReport = async (userInput: UserInput): Promise<Report
       }
     `;
 
-  // Use gemini-3-pro-preview for complex reasoning tasks.
-  const model = 'gemini-3-pro-preview';
+  // FIX: Call the Gemini API and return a value to satisfy the function's signature.
+  const model = 'gemini-3-pro-preview'; // Use a powerful model for this complex reasoning task.
   
-  try {
-    const response = await ai.models.generateContent({
-      model: model,
-      contents: prompt,
-    });
+  const response = await ai.models.generateContent({
+    model: model,
+    contents: prompt,
+  });
 
-    const textReport = response.text;
-    const parsedReport = parseReportFromText(textReport);
+  const textReport = response.text;
+  const parsedReport = parseReportFromText(textReport);
 
-    return {
-      textReport,
-      parsedReport,
-    };
-  } catch (error) {
-    console.error("Error generating health report:", error);
-    throw new Error("Failed to generate report. Please try again.");
-  }
+  return {
+    textReport,
+    parsedReport,
+  };
 };

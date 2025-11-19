@@ -2,12 +2,25 @@
 import { GoogleGenAI } from "@google/genai";
 import type { UserInput, ReportData, ParsedReport } from '../types';
 
-if (!process.env.API_KEY) {
-  // This is a placeholder check. The actual key is expected to be in the environment.
-  console.warn("API_KEY environment variable not set. Using a placeholder.");
+// Safe access to API key to prevent runtime crashes in browsers where 'process' is not defined
+const getApiKey = (): string => {
+  try {
+    if (typeof process !== 'undefined' && process.env && process.env.API_KEY) {
+      return process.env.API_KEY;
+    }
+  } catch (e) {
+    console.warn("Error accessing process.env");
+  }
+  return '';
+};
+
+const API_KEY = getApiKey();
+
+if (!API_KEY) {
+  console.warn("API_KEY environment variable not set or not accessible.");
 }
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
+const ai = new GoogleGenAI({ apiKey: API_KEY });
 
 const parseReportFromText = (text: string): ParsedReport | null => {
   const jsonBlockRegex = /```json\s*([\s\S]*?)\s*```/i; // Case insensitive for robustness

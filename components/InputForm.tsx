@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import type { UserInput } from '../types';
 import { SpinnerIcon } from './icons/SpinnerIcon';
+import { ChevronIcon } from './icons/ChevronIcon';
 import { healthAlerts } from '../data/healthAlerts';
 
 const nigerianStatesAndLGAs: { [key: string]: string[] } = {
@@ -70,6 +71,8 @@ interface InputFormProps {
 
 export const InputForm: React.FC<InputFormProps> = ({ userInput, onInputChange, onSubmit, isLoading }) => {
   const [symptomSuggestions, setSymptomSuggestions] = useState<string[]>([]);
+  const [isMedicalHistoryOpen, setIsMedicalHistoryOpen] = useState(false);
+  
   const lgasForSelectedState = userInput.state ? nigerianStatesAndLGAs[userInput.state] || [] : [];
   
   useEffect(() => {
@@ -102,9 +105,9 @@ export const InputForm: React.FC<InputFormProps> = ({ userInput, onInputChange, 
 
 
   return (
-    <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-6 shadow-lg">
+    <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-6 shadow-lg h-full flex flex-col">
       <h2 className="text-2xl font-bold text-white mb-4">Case Details</h2>
-      <form onSubmit={onSubmit} className="space-y-4">
+      <form onSubmit={onSubmit} className="space-y-4 flex-1 overflow-y-auto pr-2 custom-scrollbar">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label htmlFor="state" className="block text-sm font-medium text-cyan-400 mb-1">State</label>
@@ -184,7 +187,7 @@ export const InputForm: React.FC<InputFormProps> = ({ userInput, onInputChange, 
             </select>
           </div>
           <div>
-            <label htmlFor="preExistingConditions" className="block text-sm font-medium text-cyan-400 mb-1">Pre-existing Conditions</label>
+            <label htmlFor="preExistingConditions" className="block text-sm font-medium text-cyan-400 mb-1">Major Condition Summary</label>
             <input
               type="text"
               id="preExistingConditions"
@@ -195,6 +198,71 @@ export const InputForm: React.FC<InputFormProps> = ({ userInput, onInputChange, 
               className="w-full bg-slate-800 border border-slate-600 rounded-md shadow-sm py-2 px-3 text-slate-200 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 transition"
             />
           </div>
+        </div>
+
+        {/* Collapsible Detailed Medical History Section */}
+        <div className="border border-slate-700 rounded-lg bg-slate-800/30 overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setIsMedicalHistoryOpen(!isMedicalHistoryOpen)}
+            className="w-full flex items-center justify-between p-4 text-left hover:bg-slate-700/50 transition-colors"
+          >
+            <span className="text-sm font-medium text-cyan-400">Detailed Medical History</span>
+            <ChevronIcon className="w-4 h-4 text-slate-400" expanded={isMedicalHistoryOpen} />
+          </button>
+          
+          {isMedicalHistoryOpen && (
+            <div className="p-4 border-t border-slate-700 space-y-4 animate-in slide-in-from-top-2 fade-in duration-200">
+              <div>
+                <label htmlFor="pastDiagnoses" className="block text-xs font-medium text-slate-400 mb-1">Past Diagnoses</label>
+                <textarea
+                  id="pastDiagnoses"
+                  name="pastDiagnoses"
+                  value={userInput.detailedHistory?.pastDiagnoses || ''}
+                  onChange={onInputChange}
+                  rows={2}
+                  placeholder="List any chronic illnesses or previous major health events..."
+                  className="w-full bg-slate-900 border border-slate-600 rounded-md shadow-sm py-2 px-3 text-slate-200 text-sm focus:outline-none focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 transition"
+                />
+              </div>
+              <div>
+                <label htmlFor="surgicalHistory" className="block text-xs font-medium text-slate-400 mb-1">Surgical History</label>
+                <textarea
+                  id="surgicalHistory"
+                  name="surgicalHistory"
+                  value={userInput.detailedHistory?.surgicalHistory || ''}
+                  onChange={onInputChange}
+                  rows={2}
+                  placeholder="Any previous surgeries and dates..."
+                  className="w-full bg-slate-900 border border-slate-600 rounded-md shadow-sm py-2 px-3 text-slate-200 text-sm focus:outline-none focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 transition"
+                />
+              </div>
+               <div>
+                <label htmlFor="familyHistory" className="block text-xs font-medium text-slate-400 mb-1">Family Medical History</label>
+                <textarea
+                  id="familyHistory"
+                  name="familyHistory"
+                  value={userInput.detailedHistory?.familyHistory || ''}
+                  onChange={onInputChange}
+                  rows={2}
+                  placeholder="Hereditary conditions in immediate family..."
+                  className="w-full bg-slate-900 border border-slate-600 rounded-md shadow-sm py-2 px-3 text-slate-200 text-sm focus:outline-none focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 transition"
+                />
+              </div>
+              <div>
+                <label htmlFor="allergies" className="block text-xs font-medium text-slate-400 mb-1">Allergies</label>
+                <input
+                  type="text"
+                  id="allergies"
+                  name="allergies"
+                  value={userInput.detailedHistory?.allergies || ''}
+                  onChange={onInputChange}
+                  placeholder="Medications, foods, environmental..."
+                  className="w-full bg-slate-900 border border-slate-600 rounded-md shadow-sm py-2 px-3 text-slate-200 text-sm focus:outline-none focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 transition"
+                />
+              </div>
+            </div>
+          )}
         </div>
 
         <div>
@@ -227,20 +295,22 @@ export const InputForm: React.FC<InputFormProps> = ({ userInput, onInputChange, 
           </fieldset>
         </div>
         
-        <button
-          type="submit"
-          disabled={isLoading}
-          className="w-full flex justify-center items-center bg-cyan-600 hover:bg-cyan-700 disabled:bg-slate-600 text-white font-bold py-3 px-4 rounded-md transition-colors duration-300 shadow-md disabled:cursor-not-allowed"
-        >
-          {isLoading ? (
-            <>
-              <SpinnerIcon className="w-5 h-5 mr-3" />
-              Analyzing Risk...
-            </>
-          ) : (
-            'Generate Risk Assessment'
-          )}
-        </button>
+        <div className="pt-2 sticky bottom-0 bg-slate-900/0 backdrop-blur-sm">
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="w-full flex justify-center items-center bg-cyan-600 hover:bg-cyan-700 disabled:bg-slate-600 text-white font-bold py-3 px-4 rounded-md transition-colors duration-300 shadow-md disabled:cursor-not-allowed"
+            >
+              {isLoading ? (
+                <>
+                  <SpinnerIcon className="w-5 h-5 mr-3" />
+                  Analyzing Risk...
+                </>
+              ) : (
+                'Generate Risk Assessment'
+              )}
+            </button>
+        </div>
       </form>
     </div>
   );

@@ -6,6 +6,14 @@ export interface UserInput {
   ageGroup: string;
   preExistingConditions: string;
   context: EnvironmentalContext;
+  detailedHistory: DetailedMedicalHistory;
+}
+
+export interface DetailedMedicalHistory {
+  pastDiagnoses: string;
+  surgicalHistory: string;
+  familyHistory: string;
+  allergies: string;
 }
 
 export interface EnvironmentalContext {

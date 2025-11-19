@@ -10,7 +10,7 @@ if (!process.env.API_KEY) {
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
 
 const parseReportFromText = (text: string): ParsedReport | null => {
-  const jsonBlockRegex = /```json\s*([\s\S]*?)\s*```/;
+  const jsonBlockRegex = /```json\s*([\s\S]*?)\s*```/i; // Case insensitive for robustness
   const match = text.match(jsonBlockRegex);
 
   if (match && match[1]) {
@@ -30,13 +30,23 @@ const parseReportFromText = (text: string): ParsedReport | null => {
 
 
 export const generateHealthReport = async (userInput: UserInput): Promise<ReportData> => {
-  const { state, lga, symptoms, ageGroup, preExistingConditions, context } = userInput;
+  const { state, lga, symptoms, ageGroup, preExistingConditions, detailedHistory, context } = userInput;
 
   const location = lga === 'All'
     ? `${state} State (all local governments), Nigeria`
     : `${lga}, ${state} State, Nigeria`;
 
-  const demographics = `Age Group: ${ageGroup || 'Not specified'}. Pre-existing Conditions: ${preExistingConditions || 'None specified'}.`;
+  // Format detailed medical history
+  const detailedHistoryText = detailedHistory ? `
+    - Past Diagnoses: ${detailedHistory.pastDiagnoses || 'None'}
+    - Surgical History: ${detailedHistory.surgicalHistory || 'None'}
+    - Family Medical History: ${detailedHistory.familyHistory || 'None'}
+    - Allergies: ${detailedHistory.allergies || 'None'}
+  ` : 'None';
+
+  const demographics = `Age Group: ${ageGroup || 'Not specified'}. 
+  Summary of Major Conditions: ${preExistingConditions || 'None specified'}.
+  Detailed Medical History: ${detailedHistoryText}`;
   
   const formattedContext = `Selected Factors: ${context.factors.length > 0 ? context.factors.join(', ') : 'None selected'}. Additional Notes: ${context.notes || 'None'}`;
 
@@ -62,6 +72,7 @@ export const generateHealthReport = async (userInput: UserInput): Promise<Report
     - Flag environmental hotspots requiring urgent intervention.
     - Generate specific, data-driven public health intervention proposals.
     - Provide emergency response planning guidance based on the synthesis of all available data.
+    - Consider user's specific medical history (allergies, past surgeries, etc.) when suggesting first aid or treatments (e.g., flag allergy risks).
 
     4. EMERGENCY RESPONSE PROTOCOL:
     For high-severity alerts, you must automatically:
@@ -73,7 +84,7 @@ export const generateHealthReport = async (userInput: UserInput): Promise<Report
     USER INPUT
     Current Location: ${location}
     Reported Symptoms: ${symptoms}
-    Demographic: ${demographics}
+    Demographic & History: ${demographics}
     Environmental Context: ${formattedContext}
 
     --- DATA MODULES ---

@@ -16,6 +16,13 @@ export const Header: React.FC<HeaderProps> = ({ onHistoryClick }) => {
         <p className="mt-1 text-slate-400 text-sm max-w-xl">
           AI-powered situational analysis for immediate health threats based on localized data.
         </p>
+        <div className="flex items-center justify-center md:justify-start gap-2 mt-3 text-[10px] sm:text-xs font-medium text-slate-500 uppercase tracking-wider">
+          <span className="bg-slate-800/50 px-2 py-1 rounded border border-slate-700/50 text-cyan-600/80">Rapid Assessment</span>
+          <span className="hidden sm:inline text-slate-700">•</span>
+          <span className="bg-slate-800/50 px-2 py-1 rounded border border-slate-700/50 text-cyan-600/80">Localized Data</span>
+          <span className="hidden sm:inline text-slate-700">•</span>
+          <span className="bg-slate-800/50 px-2 py-1 rounded border border-slate-700/50 text-cyan-600/80">Clinical Support</span>
+        </div>
       </div>
 
       <div className="flex flex-col items-end gap-2">

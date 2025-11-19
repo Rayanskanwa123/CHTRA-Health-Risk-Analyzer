@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useEffect } from 'react';
 import { Header } from './components/Header';
 import { InputForm } from './components/InputForm';
@@ -18,6 +19,12 @@ const App: React.FC = () => {
     symptoms: 'Severe abdominal pain, persistent vomiting, extreme fatigue, and profuse, watery diarrhea.',
     ageGroup: '46-65',
     preExistingConditions: 'None reported',
+    detailedHistory: {
+      pastDiagnoses: '',
+      surgicalHistory: '',
+      familyHistory: '',
+      allergies: ''
+    },
     context: {
       factors: ['Flood-Prone', 'Rural'],
       notes: 'Mid-rainy season, recent localized flooding reported in the area.'
@@ -50,6 +57,15 @@ const App: React.FC = () => {
       try {
         // Decode base64 -> unescape -> json parse
         const decodedInput = JSON.parse(decodeURIComponent(escape(atob(shareData))));
+        // Ensure detailedHistory exists for backward compatibility with older shares
+        if (!decodedInput.detailedHistory) {
+            decodedInput.detailedHistory = {
+                pastDiagnoses: '',
+                surgicalHistory: '',
+                familyHistory: '',
+                allergies: ''
+            };
+        }
         setUserInput(decodedInput);
         // If coming from a share link, we might want to auto-login or show the app
         // For this demo, let's auto-login a guest if a share link is present
@@ -80,7 +96,17 @@ const App: React.FC = () => {
   };
 
   const handleLoadHistory = (item: SavedReport) => {
-    setUserInput(item.userInput);
+    // Ensure detailedHistory structure exists when loading old reports
+    const loadedInput = item.userInput;
+    if (!loadedInput.detailedHistory) {
+        loadedInput.detailedHistory = {
+            pastDiagnoses: '',
+            surgicalHistory: '',
+            familyHistory: '',
+            allergies: ''
+        };
+    }
+    setUserInput(loadedInput);
     setReport(item.reportData);
     setError(null);
   };
@@ -102,6 +128,18 @@ const App: React.FC = () => {
 
     if (name === 'contextNotes') {
       setUserInput(prev => ({ ...prev, context: { ...prev.context, notes: value }}));
+      return;
+    }
+
+    // Handle detailed medical history fields
+    if (['pastDiagnoses', 'surgicalHistory', 'familyHistory', 'allergies'].includes(name)) {
+      setUserInput(prev => ({
+        ...prev,
+        detailedHistory: {
+          ...prev.detailedHistory,
+          [name]: value
+        }
+      }));
       return;
     }
 
@@ -138,24 +176,31 @@ const App: React.FC = () => {
 
   // Render Main Application
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-200 font-sans p-4 sm:p-6 lg:p-8">
-      <div className="max-w-7xl mx-auto">
-        <Header onHistoryClick={() => setIsHistoryOpen(true)} />
-        <main className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <InputForm 
-            userInput={userInput}
-            onInputChange={handleInputChange}
-            onSubmit={handleSubmit}
-            isLoading={isLoading}
-          />
-          <ReportDisplay 
-            report={report}
-            isLoading={isLoading}
-            error={error}
-            userInput={userInput}
-          />
-        </main>
+    <div className="min-h-screen bg-slate-900 text-slate-200 font-sans overflow-hidden flex flex-col">
+      <div className="flex-shrink-0 p-4 sm:p-6 border-b border-slate-800 bg-slate-900 z-10">
+         <div className="max-w-7xl mx-auto">
+            <Header onHistoryClick={() => setIsHistoryOpen(true)} />
+         </div>
       </div>
+      
+      <main className="flex-1 max-w-7xl mx-auto w-full grid grid-cols-1 lg:grid-cols-2 gap-0 lg:gap-8 p-4 sm:p-6 overflow-hidden">
+          <div className="h-full overflow-y-auto custom-scrollbar pb-20 lg:pb-0">
+             <InputForm 
+                userInput={userInput}
+                onInputChange={handleInputChange}
+                onSubmit={handleSubmit}
+                isLoading={isLoading}
+            />
+          </div>
+          <div className="h-full overflow-y-auto custom-scrollbar pb-20 lg:pb-0 mt-6 lg:mt-0">
+            <ReportDisplay 
+                report={report}
+                isLoading={isLoading}
+                error={error}
+                userInput={userInput}
+            />
+          </div>
+      </main>
 
       <HistoryModal 
         isOpen={isHistoryOpen}

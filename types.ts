@@ -11,6 +11,7 @@ export interface UserInput {
 export interface EnvironmentalContext {
   factors: string[];
   notes: string;
+  timestamp?: number; // Added for history tracking
 }
 
 export interface Diagnosis {
@@ -52,4 +53,11 @@ export interface HealthAlert {
   AlertType: string;
   Description: string;
   Severity: string;
+}
+
+export interface SavedReport {
+  id: string;
+  timestamp: number;
+  userInput: UserInput;
+  reportData: ReportData;
 }

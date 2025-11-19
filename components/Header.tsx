@@ -1,19 +1,38 @@
-
 import React from 'react';
 import { AlertIcon } from './icons/AlertIcon';
+import { HistoryIcon } from './icons/HistoryIcon';
 
-export const Header: React.FC = () => {
+interface HeaderProps {
+  onHistoryClick?: () => void;
+}
+
+export const Header: React.FC<HeaderProps> = ({ onHistoryClick }) => {
   return (
-    <header className="text-center">
-      <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-cyan-400">
-        CHTRA: Health Risk Analyzer
-      </h1>
-      <p className="mt-2 text-slate-400 max-w-3xl mx-auto">
-        AI-powered situational analysis for immediate health threats based on localized data.
-      </p>
-      <div className="mt-4 inline-flex items-center bg-amber-900/50 text-amber-300 border border-amber-700 rounded-full px-4 py-2 text-sm">
-        <AlertIcon className="w-5 h-5 mr-2" />
-        <span className="font-semibold">Disclaimer:</span>&nbsp;This is an AI-powered tool and not a substitute for professional medical advice.
+    <header className="flex flex-col md:flex-row items-center justify-between gap-4 border-b border-slate-800 pb-6">
+      <div className="text-center md:text-left">
+        <h1 className="text-3xl sm:text-4xl font-bold text-cyan-400 tracking-tight">
+          CHTRA<span className="text-slate-500 text-lg font-light ml-2">Health Risk Analyzer</span>
+        </h1>
+        <p className="mt-1 text-slate-400 text-sm max-w-xl">
+          AI-powered situational analysis for immediate health threats based on localized data.
+        </p>
+      </div>
+
+      <div className="flex flex-col items-end gap-2">
+        {onHistoryClick && (
+          <button
+            onClick={onHistoryClick}
+            className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-medium rounded-lg border border-slate-700 transition-all"
+          >
+            <HistoryIcon className="w-4 h-4" />
+            <span>History</span>
+          </button>
+        )}
+        
+        <div className="inline-flex items-center bg-amber-900/20 text-amber-500 border border-amber-900/50 rounded-full px-3 py-1 text-xs">
+          <AlertIcon className="w-3 h-3 mr-1.5" />
+          <span className="font-semibold opacity-80">Disclaimer:</span>&nbsp;Not medical advice.
+        </div>
       </div>
     </header>
   );

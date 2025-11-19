@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { ShieldIcon } from './icons/ShieldIcon';
 import { MicroscopeIcon } from './icons/MicroscopeIcon';
@@ -12,6 +13,7 @@ interface LandingPageProps {
 export const LandingPage: React.FC<LandingPageProps> = ({ onLoginSuccess }) => {
   const [isLoginOpen, setIsLoginOpen] = useState(false);
   const [isSignupOpen, setIsSignupOpen] = useState(false);
+  const [isAboutOpen, setIsAboutOpen] = useState(false);
   
   // Login State
   const [loginEmail, setLoginEmail] = useState('');
@@ -26,18 +28,70 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginSuccess }) => {
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    if (loginEmail === 'me@chtra.com' && loginPassword === '3930') {
-      onLoginSuccess({ name: 'Demo User', email: loginEmail });
-    } else {
-      setLoginError('Invalid credentials. Please check your email and password.');
+    // Normalize inputs to handle accidental whitespace or case sensitivity
+    const normalizedEmail = loginEmail.trim().toLowerCase();
+    const normalizedPassword = loginPassword.trim();
+
+    setLoginError('');
+
+    // 1. Check Hardcoded Demo User
+    if (normalizedEmail === 'me@chtra.com' && normalizedPassword === '3930') {
+      onLoginSuccess({ name: 'Demo User', email: normalizedEmail });
+      return;
     }
+
+    // 2. Check Local Storage Users (created via Sign Up)
+    try {
+        const storedUsers = JSON.parse(localStorage.getItem('chtra_users') || '[]');
+        const validUser = storedUsers.find((u: any) => 
+            u.email === normalizedEmail && u.password === normalizedPassword
+        );
+
+        if (validUser) {
+            onLoginSuccess({ name: validUser.name, email: validUser.email });
+            return;
+        }
+    } catch (err) {
+        console.error("Error reading user storage", err);
+    }
+
+    setLoginError('Invalid credentials. Please check your email and password.');
   };
 
   const handleSignup = (e: React.FormEvent) => {
     e.preventDefault();
-    // Mock signup - just log them in for this demo
+    setSignupError('');
+
     if (signupName && signupEmail && signupPassword) {
-       onLoginSuccess({ name: signupName, email: signupEmail });
+       const normalizedEmail = signupEmail.trim().toLowerCase();
+       const normalizedPassword = signupPassword.trim();
+
+       try {
+           const storedUsers = JSON.parse(localStorage.getItem('chtra_users') || '[]');
+           
+           // Check if user already exists
+           if (storedUsers.some((u: any) => u.email === normalizedEmail)) {
+               setSignupError('An account with this email already exists.');
+               return;
+           }
+
+           const newUser = { 
+               name: signupName, 
+               email: normalizedEmail, 
+               password: normalizedPassword 
+           };
+
+           // Save to local storage
+           localStorage.setItem('chtra_users', JSON.stringify([...storedUsers, newUser]));
+           
+           // Automatically log in
+           onLoginSuccess({ name: signupName, email: normalizedEmail });
+
+       } catch (err) {
+           console.error("Error saving user", err);
+           // Fallback for demo if storage fails (e.g. private mode restrictions)
+           onLoginSuccess({ name: signupName, email: normalizedEmail });
+       }
     } else {
         setSignupError('Please fill in all fields.');
     }
@@ -46,11 +100,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginSuccess }) => {
   const openSignup = () => {
     setIsLoginOpen(false);
     setIsSignupOpen(true);
+    setLoginError('');
   };
 
   const openLogin = () => {
     setIsSignupOpen(false);
     setIsLoginOpen(true);
+    setSignupError('');
   };
 
   return (
@@ -204,7 +260,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginSuccess }) => {
             <div>
               <h4 className="text-white font-bold mb-6">Company</h4>
               <ul className="space-y-4 text-sm text-slate-400">
-                <li><a href="#" className="hover:text-cyan-400 transition-colors">About Us</a></li>
+                <li><button onClick={() => setIsAboutOpen(true)} className="hover:text-cyan-400 transition-colors text-left">About Us</button></li>
                 <li><a href="#" className="hover:text-cyan-400 transition-colors">Partners</a></li>
                 <li><a href="#" className="hover:text-cyan-400 transition-colors">Contact</a></li>
                 <li><a href="#" className="hover:text-cyan-400 transition-colors">Privacy Policy</a></li>
@@ -333,6 +389,44 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginSuccess }) => {
                 Already have an account? <button type="button" onClick={openLogin} className="text-cyan-400 hover:underline">Login</button>
               </p>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* About Us Modal */}
+      {isAboutOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-slate-800 border border-slate-700 rounded-xl w-full max-w-lg shadow-2xl overflow-hidden relative">
+             <div className="p-6 border-b border-slate-700 flex justify-between items-center bg-slate-900/50">
+              <h3 className="text-xl font-bold text-white">About CHTRA</h3>
+              <button onClick={() => setIsAboutOpen(false)} className="text-slate-400 hover:text-white">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="p-6 space-y-4 text-slate-300 overflow-y-auto max-h-[60vh] custom-scrollbar">
+                <p>
+                    <strong>CHTRA</strong> (Comprehensive Health and Threat Response Agent) is an advanced AI-powered platform designed to bridge the gap in healthcare accessibility for communities in Nigeria.
+                </p>
+                <p>
+                    Our mission is to empower healthcare workers and individuals with immediate, data-driven health risk assessments. By combining user-reported symptoms with localized environmental data, active health alerts, and facility mapping, CHTRA provides actionable insights when they matter most.
+                </p>
+                <h4 className="text-cyan-400 font-bold mt-4">Key Features</h4>
+                <ul className="list-disc pl-5 space-y-1">
+                    <li>Real-time symptom analysis using Gemini 3 Pro Preview.</li>
+                    <li>Integration with Nigerian environmental datasets (flood zones, industrial areas).</li>
+                    <li>Active health alert cross-referencing (e.g., Cholera outbreaks).</li>
+                    <li>Geolocation-based facility recommendations.</li>
+                </ul>
+                <div className="bg-slate-900/50 p-4 rounded-lg border border-slate-700 mt-6 text-sm">
+                    <strong className="text-amber-500 block mb-1">Disclaimer</strong>
+                    CHTRA is an informational tool and does not provide medical diagnoses. It is designed to support, not replace, professional medical advice. Always consult a qualified healthcare provider for diagnosis and treatment.
+                </div>
+            </div>
+            <div className="p-6 border-t border-slate-700 bg-slate-900/30 text-center">
+                <p className="text-xs text-slate-500">&copy; {new Date().getFullYear()} CHTRA Health Systems</p>
+            </div>
           </div>
         </div>
       )}

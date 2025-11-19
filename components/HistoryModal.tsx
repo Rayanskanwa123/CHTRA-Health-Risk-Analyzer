@@ -1,4 +1,5 @@
-import React from 'react';
+
+import React, { useState } from 'react';
 import type { SavedReport } from '../types';
 import { AlertIcon } from './icons/AlertIcon';
 
@@ -17,34 +18,61 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({
   onLoadReport, 
   onDeleteReport 
 }) => {
+  const [searchTerm, setSearchTerm] = useState('');
+
   if (!isOpen) return null;
+
+  const filteredHistory = history.filter(item => {
+    const term = searchTerm.toLowerCase();
+    return (
+      item.userInput.state.toLowerCase().includes(term) ||
+      item.userInput.lga.toLowerCase().includes(term) ||
+      item.userInput.symptoms.toLowerCase().includes(term) ||
+      (item.reportData.parsedReport?.riskLevel || '').toLowerCase().includes(term)
+    );
+  });
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="bg-slate-800 border border-slate-700 rounded-lg w-full max-w-2xl max-h-[80vh] flex flex-col shadow-2xl">
-        <div className="p-4 border-b border-slate-700 flex justify-between items-center bg-slate-900/50 rounded-t-lg">
-          <h2 className="text-xl font-bold text-white flex items-center gap-2">
-            <span className="text-cyan-400">Assessment History</span>
-          </h2>
-          <button 
-            onClick={onClose}
-            className="text-slate-400 hover:text-white transition-colors p-1 hover:bg-slate-700 rounded-full"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+        <div className="p-4 border-b border-slate-700 bg-slate-900/50 rounded-t-lg space-y-4">
+          <div className="flex justify-between items-center">
+            <h2 className="text-xl font-bold text-white flex items-center gap-2">
+              <span className="text-cyan-400">Assessment History</span>
+            </h2>
+            <button 
+              onClick={onClose}
+              className="text-slate-400 hover:text-white transition-colors p-1 hover:bg-slate-700 rounded-full"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="Search by state, LGA, symptoms or risk level..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full bg-slate-800 border border-slate-600 rounded-md pl-9 pr-4 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 transition-colors"
+            />
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-slate-500 absolute left-3 top-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
-          </button>
+          </div>
         </div>
         
         <div className="overflow-y-auto p-4 space-y-3 custom-scrollbar">
-          {history.length === 0 ? (
+          {filteredHistory.length === 0 ? (
             <div className="text-center py-12 text-slate-500">
               <AlertIcon className="w-12 h-12 mx-auto mb-3 opacity-50" />
-              <p>No saved reports found.</p>
-              <p className="text-xs mt-1">Generated reports are automatically saved here.</p>
+              <p>{searchTerm ? 'No matching reports found.' : 'No saved reports found.'}</p>
+              <p className="text-xs mt-1">{searchTerm ? 'Try a different search term.' : 'Generated reports are automatically saved here.'}</p>
             </div>
           ) : (
-            history.map((item) => (
+            filteredHistory.map((item) => (
               <div 
                 key={item.id} 
                 className="bg-slate-900/50 border border-slate-700 rounded-lg p-4 hover:border-cyan-500/50 transition-colors group"

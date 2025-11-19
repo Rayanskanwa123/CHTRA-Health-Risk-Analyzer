@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { AlertIcon } from './icons/AlertIcon';
 import { HistoryIcon } from './icons/HistoryIcon';
@@ -38,7 +39,7 @@ export const Header: React.FC<HeaderProps> = ({ onHistoryClick }) => {
         
         <div className="inline-flex items-center bg-amber-900/20 text-amber-500 border border-amber-900/50 rounded-full px-3 py-1 text-xs">
           <AlertIcon className="w-3 h-3 mr-1.5" />
-          <span className="font-semibold opacity-80">Disclaimer:</span>&nbsp;Not medical advice.
+          <span className="font-semibold opacity-80">Disclaimer:</span>&nbsp;Always seek professional medical guidance.
         </div>
       </div>
     </header>

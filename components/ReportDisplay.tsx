@@ -1,5 +1,4 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { SpinnerIcon } from './icons/SpinnerIcon';
 import type { ReportData, ParsedReport, UserInput, MedicalFacility } from '../types';
 import { MicroscopeIcon } from './icons/MicroscopeIcon';
@@ -12,7 +11,7 @@ import { MapIcon } from './icons/MapIcon';
 import { ExternalLinkIcon } from './icons/ExternalLinkIcon';
 import { ThumbsUpIcon } from './icons/ThumbsUpIcon';
 import { ThumbsDownIcon } from './icons/ThumbsDownIcon';
-import { DiagnosisChart, RiskGauge, FacilityDistribution } from './Visualizations';
+import { DiagnosisChart, RiskGauge, FacilityPriorityChart } from './Visualizations';
 import { jsPDF } from "jspdf";
 
 const Placeholder: React.FC = () => (
@@ -42,6 +41,7 @@ const FormattedReport: React.FC<{ report: ParsedReport; locationContext: string 
   const [facilitySearch, setFacilitySearch] = useState('');
   const [selectedFacility, setSelectedFacility] = useState<MedicalFacility | null>(null);
   const [showChart, setShowChart] = useState(true);
+  const [isMapLoading, setIsMapLoading] = useState(true);
 
   const filteredFacilities = report.facilities.filter(f => 
     f["Facility Name"].toLowerCase().includes(facilitySearch.toLowerCase()) ||
@@ -52,6 +52,10 @@ const FormattedReport: React.FC<{ report: ParsedReport; locationContext: string 
   const mapQuery = selectedFacility 
     ? `${selectedFacility["Facility Name"]}, ${selectedFacility["Location / Address"]}`
     : `Hospitals in ${locationContext}`;
+
+  useEffect(() => {
+    setIsMapLoading(true);
+  }, [mapQuery]);
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
@@ -184,9 +188,9 @@ const FormattedReport: React.FC<{ report: ParsedReport; locationContext: string 
             </div>
         </div>
 
-        {/* Facility Stats */}
-        <div className="mb-4 bg-slate-900/30 p-3 rounded-lg border border-slate-800">
-            <FacilityDistribution facilities={report.facilities} />
+        {/* Facility Stats Chart */}
+        <div className="mb-4">
+            <FacilityPriorityChart facilities={report.facilities} />
         </div>
 
         <div className="mb-4">
@@ -226,7 +230,7 @@ const FormattedReport: React.FC<{ report: ParsedReport; locationContext: string 
                               ? 'bg-cyan-900/30 border-l-2 border-cyan-500' 
                               : 'hover:bg-slate-800/50 border-l-2 border-transparent'
                           }`}
-                          title="Click to view on map"
+                          title={`Location: ${f["Location / Address"]}`}
                         >
                             <td className="px-4 py-3 font-medium text-slate-300">{f["Facility Name"]}</td>
                             <td className="px-4 py-3">{f["Location / Address"]}</td>
@@ -265,7 +269,15 @@ const FormattedReport: React.FC<{ report: ParsedReport; locationContext: string 
             )}
           </div>
           
-          <div className="rounded-lg overflow-hidden border border-slate-700 h-64 w-full bg-slate-800 relative group">
+          <div className={`rounded-lg overflow-hidden border h-64 w-full bg-slate-800 relative group transition-all duration-300 ${selectedFacility ? 'border-cyan-500 shadow-[0_0_20px_rgba(6,182,212,0.15)]' : 'border-slate-700'}`}>
+            
+            {isMapLoading && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-800 z-20">
+                    <SpinnerIcon className="w-8 h-8 text-cyan-500 animate-spin mb-2" />
+                    <span className="text-xs text-slate-500">Loading map view...</span>
+                </div>
+            )}
+
             <iframe
                 width="100%"
                 height="100%"
@@ -276,11 +288,12 @@ const FormattedReport: React.FC<{ report: ParsedReport; locationContext: string 
                 src={`https://maps.google.com/maps?q=${encodeURIComponent(mapQuery)}&t=&z=${selectedFacility ? '15' : '13'}&ie=UTF8&iwloc=A&output=embed`}
                 title="Facility Map"
                 loading="lazy"
-                className={`w-full h-full transition-opacity ${selectedFacility ? 'opacity-100' : 'opacity-80 hover:opacity-100'}`}
+                onLoad={() => setIsMapLoading(false)}
+                className={`w-full h-full transition-opacity duration-500 ${isMapLoading ? 'opacity-0' : (selectedFacility ? 'opacity-100' : 'opacity-80 hover:opacity-100')}`}
                 style={{ filter: 'invert(90%) hue-rotate(180deg)' }}
             ></iframe>
             
-            {selectedFacility ? (
+            {!isMapLoading && (selectedFacility ? (
               <div className="absolute bottom-2 left-2 right-2 bg-slate-900/95 backdrop-blur-md border border-slate-600 p-3 rounded shadow-2xl z-10 animate-in slide-in-from-bottom-2">
                  <div className="flex justify-between items-start gap-3">
                     <div>
@@ -305,7 +318,7 @@ const FormattedReport: React.FC<{ report: ParsedReport; locationContext: string 
               <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-[10px] text-slate-400 p-1 text-center pointer-events-none transition-opacity opacity-100 group-hover:opacity-0">
                   Map view showing facilities near {locationContext}
               </div>
-            )}
+            ))}
           </div>
         </div>
       </div>
@@ -361,7 +374,7 @@ export const ReportDisplay: React.FC<ReportDisplayProps> = ({ report, isLoading,
     // Disclaimer
     doc.setFontSize(9);
     doc.setTextColor(100);
-    doc.text("AI-generated report. Not a substitute for professional medical advice.", pageWidth / 2, y, { align: "center" });
+    doc.text("AI-generated report. Always seek professional medical guidance.", pageWidth / 2, y, { align: "center" });
     y += 15;
     doc.setDrawColor(200);
     doc.line(margin, y, pageWidth - margin, y);
@@ -617,7 +630,7 @@ export const ReportDisplay: React.FC<ReportDisplayProps> = ({ report, isLoading,
         </div>
 
         <div className="pt-6 border-t border-slate-700 text-xs text-slate-500 text-center">
-            Generated by CHTRA AI • {new Date().toLocaleString()} • Not Medical Advice
+            Generated by CHTRA AI • {new Date().toLocaleString()} • Always seek professional medical guidance
         </div>
       </div>
     </div>

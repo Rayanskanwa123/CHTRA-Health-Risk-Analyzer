@@ -14,6 +14,7 @@ import { ExternalLinkIcon } from './icons/ExternalLinkIcon';
 import { ThumbsUpIcon } from './icons/ThumbsUpIcon';
 import { ThumbsDownIcon } from './icons/ThumbsDownIcon';
 import { DiagnosisChart, RiskGauge, FacilityPriorityChart } from './Visualizations';
+import { jsPDF } from "jspdf";
 
 const Placeholder: React.FC = () => (
     <div className="text-center p-8 border-2 border-dashed border-slate-600 rounded-lg h-full flex flex-col justify-center items-center min-h-[400px]">
@@ -382,6 +383,26 @@ const FormattedReport: React.FC<{
           </div>
         </div>
       </div>
+
+      {/* Feedback Section */}
+      <div className="flex justify-center items-center gap-4 mt-8 pt-6 border-t border-slate-800">
+        <span className="text-xs text-slate-500">Was this report helpful?</span>
+        <button 
+          onClick={() => console.log('User feedback: Thumbs Up')}
+          className="p-2 rounded-full hover:bg-slate-800 text-slate-500 hover:text-green-400 transition-colors"
+          title="Yes"
+        >
+          <ThumbsUpIcon className="w-4 h-4" />
+        </button>
+        <button 
+          onClick={() => console.log('User feedback: Thumbs Down')}
+          className="p-2 rounded-full hover:bg-slate-800 text-slate-500 hover:text-red-400 transition-colors"
+          title="No"
+        >
+          <ThumbsDownIcon className="w-4 h-4" />
+        </button>
+      </div>
+
     </div>
   );
 };
@@ -394,6 +415,157 @@ interface ReportDisplayProps {
 }
 
 export const ReportDisplay: React.FC<ReportDisplayProps> = ({ report, isLoading, error, userInput }) => {
+  const handleDownload = () => {
+    if (!report) return;
+    
+    const element = document.createElement("a");
+    const file = new Blob([report.textReport], {type: 'text/plain'});
+    element.href = URL.createObjectURL(file);
+    element.download = `CHTRA_Report_${new Date().toISOString().split('T')[0]}.txt`;
+    document.body.appendChild(element);
+    element.click();
+    document.body.removeChild(element);
+  };
+
+  const handlePdfExport = () => {
+    if (!report) return;
+    
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const margin = 20;
+    let y = 20;
+
+    // Helper to check page end
+    const checkPageBreak = (heightNeeded: number) => {
+        if (y + heightNeeded > doc.internal.pageSize.getHeight() - margin) {
+            doc.addPage();
+            y = 20;
+        }
+    };
+
+    // Title
+    doc.setFontSize(18);
+    doc.setTextColor(0, 188, 212); // Cyan
+    doc.text("CHTRA: Health Risk Assessment", pageWidth / 2, y, { align: "center" });
+    y += 10;
+
+    // Disclaimer
+    doc.setFontSize(9);
+    doc.setTextColor(100);
+    doc.text("AI-generated report. Always seek professional medical guidance.", pageWidth / 2, y, { align: "center" });
+    y += 15;
+    doc.setDrawColor(200);
+    doc.line(margin, y, pageWidth - margin, y);
+    y += 10;
+
+    // Context
+    doc.setFontSize(11);
+    doc.setTextColor(0);
+    doc.text(`Date: ${new Date().toLocaleString()}`, margin, y);
+    y += 7;
+    if (userInput.patientName) {
+        doc.text(`Patient: ${userInput.patientName} (${userInput.gender})`, margin, y);
+        y += 7;
+    }
+    doc.text(`Location: ${userInput.lga === 'All' ? userInput.state : userInput.lga + ', ' + userInput.state}`, margin, y);
+    y += 7;
+    const symptomsLines = doc.splitTextToSize(`Symptoms: ${userInput.symptoms}`, pageWidth - (margin * 2));
+    doc.text(symptomsLines, margin, y);
+    y += (symptomsLines.length * 5) + 5;
+
+    // Structured Content
+    if (report.parsedReport) {
+        const data = report.parsedReport;
+
+        // Risk Level
+        checkPageBreak(20);
+        doc.setFontSize(14);
+        doc.setTextColor(data.riskLevel === 'CRITICAL' || data.riskLevel === 'HIGH' ? 220 : 0, 0, 0);
+        doc.text(`RISK LEVEL: ${data.riskLevel}`, margin, y);
+        y += 10;
+        doc.setTextColor(0);
+
+        // Diagnoses
+        checkPageBreak(30);
+        doc.setFontSize(12);
+        doc.setFont(undefined, 'bold');
+        doc.text("Likely Diagnoses", margin, y);
+        y += 7;
+        doc.setFont(undefined, 'normal');
+        doc.setFontSize(10);
+        
+        data.diagnoses.forEach(d => {
+            checkPageBreak(20);
+            doc.text(`• ${d.name} (Confidence: ${(d.confidence * 100).toFixed(0)}%)`, margin + 5, y);
+            y += 5;
+            const rationale = doc.splitTextToSize(d.rationale, pageWidth - (margin * 2) - 5);
+            doc.setTextColor(80);
+            doc.text(rationale, margin + 5, y);
+            doc.setTextColor(0);
+            y += (rationale.length * 5) + 3;
+        });
+        y += 5;
+
+        // Action Plan
+        checkPageBreak(30);
+        doc.setFontSize(12);
+        doc.setFont(undefined, 'bold');
+        doc.text("Action Plan", margin, y);
+        y += 7;
+        doc.setFont(undefined, 'normal');
+        doc.setFontSize(10);
+        const planLines = doc.splitTextToSize(data.urgentActionPlan, pageWidth - (margin * 2));
+        doc.text(planLines, margin, y);
+        y += (planLines.length * 5) + 5;
+
+        // Facilities
+        if (data.facilities.length > 0) {
+            checkPageBreak(30);
+            y += 5;
+            doc.setFontSize(12);
+            doc.setFont(undefined, 'bold');
+            doc.text("Recommended Facilities", margin, y);
+            y += 7;
+            doc.setFont(undefined, 'normal');
+            doc.setFontSize(10);
+            data.facilities.forEach(f => {
+                checkPageBreak(15);
+                doc.text(`• ${f["Facility Name"]} [${f["Priority Level"]}]`, margin + 5, y);
+                y += 5;
+                doc.setTextColor(80);
+                doc.text(`  ${f["Location / Address"]}`, margin + 5, y);
+                doc.setTextColor(0);
+                y += 7;
+            });
+        }
+
+    } else {
+        // Fallback for raw text
+        doc.setFontSize(10);
+        const lines = doc.splitTextToSize(report.textReport, pageWidth - (margin * 2));
+        doc.text(lines, margin, y);
+    }
+
+    doc.save(`CHTRA_Report_${new Date().toISOString().split('T')[0]}.pdf`);
+  };
+
+  const handleJsonExport = () => {
+    if (!report || !report.parsedReport) return;
+    const element = document.createElement("a");
+    const file = new Blob([JSON.stringify(report.parsedReport, null, 2)], {type: 'application/json'});
+    element.href = URL.createObjectURL(file);
+    element.download = `CHTRA_Data_${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(element);
+    element.click();
+    document.body.removeChild(element);
+  };
+
+  const handleShare = () => {
+    const data = btoa(unescape(encodeURIComponent(JSON.stringify(userInput))));
+    const url = `${window.location.origin}${window.location.pathname}?share=${data}`;
+    navigator.clipboard.writeText(url).then(() => alert('Link copied to clipboard!'));
+  };
+
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center h-full min-h-[400px] text-slate-400">
@@ -429,17 +601,42 @@ export const ReportDisplay: React.FC<ReportDisplayProps> = ({ report, isLoading,
     <div className="bg-slate-900 h-full overflow-y-auto custom-scrollbar rounded-lg border border-slate-800 shadow-2xl">
       <div className="p-6 bg-slate-800/50 min-h-full">
          <div className="flex justify-end gap-2 mb-4 no-print">
-            <button className="p-2 rounded hover:bg-slate-700 text-slate-400 hover:text-white transition-colors" title="Print Report" onClick={() => window.print()}>
+            <button 
+                className="p-2 rounded hover:bg-slate-700 text-slate-400 hover:text-white transition-colors" 
+                title="Share Link" 
+                onClick={handleShare}
+            >
+                <ShareIcon className="w-5 h-5" />
+            </button>
+            <button 
+                className="p-2 rounded hover:bg-slate-700 text-slate-400 hover:text-white transition-colors" 
+                title="Export JSON Data" 
+                onClick={handleJsonExport}
+            >
+                <JsonIcon className="w-5 h-5" />
+            </button>
+             <button 
+                className="p-2 rounded hover:bg-slate-700 text-slate-400 hover:text-white transition-colors" 
+                title="Export PDF" 
+                onClick={handlePdfExport}
+            >
+                <PdfIcon className="w-5 h-5" />
+            </button>
+            <button 
+                className="p-2 rounded hover:bg-slate-700 text-slate-400 hover:text-white transition-colors" 
+                title="Download Text" 
+                onClick={handleDownload}
+            >
+                <DownloadIcon className="w-5 h-5" />
+            </button>
+            <button 
+                className="p-2 rounded hover:bg-slate-700 text-slate-400 hover:text-white transition-colors" 
+                title="Print Report" 
+                onClick={() => window.print()}
+            >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
                 </svg>
-            </button>
-            <button className="p-2 rounded hover:bg-slate-700 text-slate-400 hover:text-white transition-colors" title="Share" onClick={() => {
-                const data = btoa(unescape(encodeURIComponent(JSON.stringify(userInput))));
-                const url = `${window.location.origin}${window.location.pathname}?share=${data}`;
-                navigator.clipboard.writeText(url).then(() => alert('Link copied to clipboard!'));
-            }}>
-                <ShareIcon className="w-5 h-5" />
             </button>
          </div>
 
@@ -450,6 +647,10 @@ export const ReportDisplay: React.FC<ReportDisplayProps> = ({ report, isLoading,
             gender={userInput.gender}
             environmentalFactors={userInput.context.factors}
          />
+         
+         <div className="mt-8 pt-6 border-t border-slate-700 text-xs text-slate-500 text-center no-print">
+            Generated by CHTRA AI • {new Date().toLocaleString()} • Always seek professional medical guidance.
+        </div>
       </div>
     </div>
   );

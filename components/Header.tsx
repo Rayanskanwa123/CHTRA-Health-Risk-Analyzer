@@ -5,9 +5,11 @@ import { HistoryIcon } from './icons/HistoryIcon';
 
 interface HeaderProps {
   onHistoryClick?: () => void;
+  onLogout?: () => void;
+  user?: { name: string; email: string } | null;
 }
 
-export const Header: React.FC<HeaderProps> = ({ onHistoryClick }) => {
+export const Header: React.FC<HeaderProps> = ({ onHistoryClick, onLogout, user }) => {
   return (
     <header className="flex flex-col md:flex-row items-center justify-between gap-4 border-b border-slate-800 pb-6">
       <div className="text-center md:text-left">
@@ -27,15 +29,35 @@ export const Header: React.FC<HeaderProps> = ({ onHistoryClick }) => {
       </div>
 
       <div className="flex flex-col items-end gap-2">
-        {onHistoryClick && (
-          <button
-            onClick={onHistoryClick}
-            className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-medium rounded-lg border border-slate-700 transition-all"
-          >
-            <HistoryIcon className="w-4 h-4" />
-            <span>History</span>
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+            {user && (
+                <div className="hidden md:flex flex-col items-end mr-2 border-r border-slate-700 pr-3">
+                    <span className="text-[10px] text-slate-500 uppercase tracking-wider">Logged in as</span>
+                    <span className="text-sm font-medium text-cyan-400">{user.name}</span>
+                </div>
+            )}
+            
+            {onHistoryClick && (
+            <button
+                onClick={onHistoryClick}
+                className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-medium rounded-lg border border-slate-700 transition-all"
+                title="View History"
+            >
+                <HistoryIcon className="w-4 h-4" />
+                <span className="hidden sm:inline">History</span>
+            </button>
+            )}
+
+            {onLogout && (
+                <button
+                    onClick={onLogout}
+                    className="px-4 py-2 bg-slate-900 hover:bg-red-900/20 text-slate-400 hover:text-red-400 text-sm font-medium rounded-lg border border-slate-700 hover:border-red-900/50 transition-all"
+                    title="Logout"
+                >
+                    Logout
+                </button>
+            )}
+        </div>
         
         <div className="inline-flex items-center bg-amber-900/20 text-amber-500 border border-amber-900/50 rounded-full px-3 py-1 text-xs">
           <AlertIcon className="w-3 h-3 mr-1.5" />

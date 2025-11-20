@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { SpinnerIcon } from './icons/SpinnerIcon';
 import type { ReportData, ParsedReport, UserInput, MedicalFacility } from '../types';
@@ -8,11 +9,11 @@ import { DownloadIcon } from './icons/DownloadIcon';
 import { ShareIcon } from './icons/ShareIcon';
 import { PdfIcon } from './icons/PdfIcon';
 import { MapIcon } from './icons/MapIcon';
+import { JsonIcon } from './icons/JsonIcon';
 import { ExternalLinkIcon } from './icons/ExternalLinkIcon';
 import { ThumbsUpIcon } from './icons/ThumbsUpIcon';
 import { ThumbsDownIcon } from './icons/ThumbsDownIcon';
 import { DiagnosisChart, RiskGauge, FacilityPriorityChart } from './Visualizations';
-import { jsPDF } from "jspdf";
 
 const Placeholder: React.FC = () => (
     <div className="text-center p-8 border-2 border-dashed border-slate-600 rounded-lg h-full flex flex-col justify-center items-center min-h-[400px]">
@@ -24,7 +25,13 @@ const Placeholder: React.FC = () => (
     </div>
 );
 
-const FormattedReport: React.FC<{ report: ParsedReport; locationContext: string }> = ({ report, locationContext }) => {
+const FormattedReport: React.FC<{ 
+  report: ParsedReport; 
+  locationContext: string; 
+  patientName?: string;
+  gender?: string;
+  environmentalFactors?: string[];
+}> = ({ report, locationContext, patientName, gender, environmentalFactors }) => {
   const getRiskColor = (level: string) => {
     switch (level) {
       case 'CRITICAL': return 'bg-red-500';
@@ -53,12 +60,31 @@ const FormattedReport: React.FC<{ report: ParsedReport; locationContext: string 
     ? `${selectedFacility["Facility Name"]}, ${selectedFacility["Location / Address"]}`
     : `Hospitals in ${locationContext}`;
 
+  // Only force info window (iwloc=A) if a specific facility is selected. 
+  // Otherwise, let the map show multiple clickable pins for exploration.
+  const mapUrl = `https://maps.google.com/maps?q=${encodeURIComponent(mapQuery)}&t=&z=${selectedFacility ? '15' : '13'}&ie=UTF8&output=embed${selectedFacility ? '&iwloc=A' : ''}`;
+
   useEffect(() => {
     setIsMapLoading(true);
   }, [mapQuery]);
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
+      {/* Header Info */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-slate-700 pb-4">
+          <div>
+             <h3 className="text-slate-400 text-xs uppercase tracking-wider font-semibold">Assessment For</h3>
+             <div className="flex items-baseline gap-2">
+                <p className="text-xl font-bold text-white">{patientName || 'Anonymous Patient'}</p>
+                {gender && <span className="text-sm text-cyan-400 font-medium px-2 py-0.5 rounded bg-cyan-900/30 border border-cyan-800">{gender}</span>}
+             </div>
+          </div>
+          <div className="text-right">
+             <h3 className="text-slate-400 text-xs uppercase tracking-wider font-semibold">Location Context</h3>
+             <p className="text-slate-300 text-sm">{locationContext}</p>
+          </div>
+      </div>
+
       {/* Risk Score Card */}
       <div className={`p-4 rounded-lg ${getRiskColor(report.riskLevel)} bg-opacity-10 border border-${getRiskColor(report.riskLevel).replace('bg-', '')}/30 flex flex-col sm:flex-row items-center gap-4`}>
         <div className="flex-shrink-0">
@@ -74,6 +100,26 @@ const FormattedReport: React.FC<{ report: ParsedReport; locationContext: string 
             </p>
         </div>
       </div>
+
+      {/* Environmental Context Section */}
+      {environmentalFactors && environmentalFactors.length > 0 && (
+        <div className="bg-slate-800/30 border border-slate-700 rounded-lg p-4">
+           <div className="flex items-center gap-2 mb-3">
+             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+             </svg>
+             <h3 className="text-sm font-semibold text-slate-300 uppercase tracking-wider">Environmental Context</h3>
+           </div>
+           <div className="flex flex-wrap gap-2">
+             {environmentalFactors.map((factor, i) => (
+               <span key={i} className="px-3 py-1 rounded-full bg-slate-700 text-cyan-300 text-xs font-medium border border-slate-600 shadow-sm flex items-center gap-1">
+                 <span className="w-1.5 h-1.5 rounded-full bg-cyan-400"></span>
+                 {factor}
+               </span>
+             ))}
+           </div>
+        </div>
+      )}
 
       {/* Diagnoses Section */}
       <div>
@@ -230,7 +276,7 @@ const FormattedReport: React.FC<{ report: ParsedReport; locationContext: string 
                               ? 'bg-cyan-900/30 border-l-2 border-cyan-500' 
                               : 'hover:bg-slate-800/50 border-l-2 border-transparent'
                           }`}
-                          title={`Location: ${f["Location / Address"]}`}
+                          title={f["Location / Address"]}
                         >
                             <td className="px-4 py-3 font-medium text-slate-300">{f["Facility Name"]}</td>
                             <td className="px-4 py-3">{f["Location / Address"]}</td>
@@ -279,19 +325,33 @@ const FormattedReport: React.FC<{ report: ParsedReport; locationContext: string 
             )}
 
             <iframe
+                key={mapQuery}
                 width="100%"
                 height="100%"
                 frameBorder="0"
                 scrolling="no"
                 marginHeight={0}
                 marginWidth={0}
-                src={`https://maps.google.com/maps?q=${encodeURIComponent(mapQuery)}&t=&z=${selectedFacility ? '15' : '13'}&ie=UTF8&iwloc=A&output=embed`}
+                src={mapUrl}
                 title="Facility Map"
                 loading="lazy"
                 onLoad={() => setIsMapLoading(false)}
                 className={`w-full h-full transition-opacity duration-500 ${isMapLoading ? 'opacity-0' : (selectedFacility ? 'opacity-100' : 'opacity-80 hover:opacity-100')}`}
                 style={{ filter: 'invert(90%) hue-rotate(180deg)' }}
             ></iframe>
+
+            {!selectedFacility && !isMapLoading && (
+                <a 
+                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapQuery)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="absolute top-2 right-2 bg-slate-900/80 hover:bg-cyan-900/80 text-slate-200 hover:text-white text-[10px] font-medium px-2 py-1 rounded border border-slate-600 shadow-lg flex items-center gap-1 transition-all z-10"
+                    title="Open in Google Maps for reviews and details"
+                >
+                    <ExternalLinkIcon className="w-3 h-3" />
+                    Open Full Map
+                </a>
+            )}
             
             {!isMapLoading && (selectedFacility ? (
               <div className="absolute bottom-2 left-2 right-2 bg-slate-900/95 backdrop-blur-md border border-slate-600 p-3 rounded shadow-2xl z-10 animate-in slide-in-from-bottom-2">
@@ -330,308 +390,66 @@ interface ReportDisplayProps {
   report: ReportData | null;
   isLoading: boolean;
   error: string | null;
-  userInput?: UserInput;
+  userInput: UserInput;
 }
 
 export const ReportDisplay: React.FC<ReportDisplayProps> = ({ report, isLoading, error, userInput }) => {
-  const [showCopied, setShowCopied] = useState(false);
-  const [feedback, setFeedback] = useState<'positive' | 'negative' | null>(null);
-
-  const handleDownload = () => {
-    if (!report) return;
-    
-    const element = document.createElement("a");
-    const file = new Blob([report.textReport], {type: 'text/plain'});
-    element.href = URL.createObjectURL(file);
-    element.download = `CHTRA_Report_${new Date().toISOString().split('T')[0]}.txt`;
-    document.body.appendChild(element);
-    element.click();
-    document.body.removeChild(element);
-  };
-
-  const handlePdfExport = () => {
-    if (!report) return;
-    
-    const doc = new jsPDF();
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const margin = 20;
-    let y = 20;
-
-    // Helper to check page end
-    const checkPageBreak = (heightNeeded: number) => {
-        if (y + heightNeeded > doc.internal.pageSize.getHeight() - margin) {
-            doc.addPage();
-            y = 20;
-        }
-    };
-
-    // Title
-    doc.setFontSize(18);
-    doc.setTextColor(0, 188, 212); // Cyan
-    doc.text("CHTRA: Health Risk Assessment", pageWidth / 2, y, { align: "center" });
-    y += 10;
-
-    // Disclaimer
-    doc.setFontSize(9);
-    doc.setTextColor(100);
-    doc.text("AI-generated report. Always seek professional medical guidance.", pageWidth / 2, y, { align: "center" });
-    y += 15;
-    doc.setDrawColor(200);
-    doc.line(margin, y, pageWidth - margin, y);
-    y += 10;
-
-    // Context
-    doc.setFontSize(11);
-    doc.setTextColor(0);
-    doc.text(`Date: ${new Date().toLocaleString()}`, margin, y);
-    y += 7;
-    if (userInput) {
-        doc.text(`Location: ${userInput.lga}, ${userInput.state}`, margin, y);
-        y += 7;
-        const symptomsLines = doc.splitTextToSize(`Symptoms: ${userInput.symptoms}`, pageWidth - (margin * 2));
-        doc.text(symptomsLines, margin, y);
-        y += (symptomsLines.length * 5) + 5;
-    }
-
-    // Structured Content
-    if (report.parsedReport) {
-        const data = report.parsedReport;
-
-        // Risk Level
-        checkPageBreak(20);
-        doc.setFontSize(14);
-        doc.setTextColor(data.riskLevel === 'CRITICAL' || data.riskLevel === 'HIGH' ? 220 : 0, 0, 0);
-        doc.text(`RISK LEVEL: ${data.riskLevel}`, margin, y);
-        y += 10;
-        doc.setTextColor(0);
-
-        // Diagnoses
-        checkPageBreak(30);
-        doc.setFontSize(12);
-        doc.setFont(undefined, 'bold');
-        doc.text("Likely Diagnoses", margin, y);
-        y += 7;
-        doc.setFont(undefined, 'normal');
-        doc.setFontSize(10);
-        
-        data.diagnoses.forEach(d => {
-            checkPageBreak(20);
-            doc.text(`• ${d.name} (Confidence: ${(d.confidence * 100).toFixed(0)}%)`, margin + 5, y);
-            y += 5;
-            const rationale = doc.splitTextToSize(d.rationale, pageWidth - (margin * 2) - 5);
-            doc.setTextColor(80);
-            doc.text(rationale, margin + 5, y);
-            doc.setTextColor(0);
-            y += (rationale.length * 5) + 3;
-        });
-        y += 5;
-
-        // Action Plan
-        checkPageBreak(30);
-        doc.setFontSize(12);
-        doc.setFont(undefined, 'bold');
-        doc.text("Action Plan", margin, y);
-        y += 7;
-        doc.setFont(undefined, 'normal');
-        doc.setFontSize(10);
-        const planLines = doc.splitTextToSize(data.urgentActionPlan, pageWidth - (margin * 2));
-        doc.text(planLines, margin, y);
-        y += (planLines.length * 5) + 5;
-
-        // Facilities
-        if (data.facilities.length > 0) {
-            checkPageBreak(30);
-            y += 5;
-            doc.setFontSize(12);
-            doc.setFont(undefined, 'bold');
-            doc.text("Recommended Facilities", margin, y);
-            y += 7;
-            doc.setFont(undefined, 'normal');
-            doc.setFontSize(10);
-            data.facilities.forEach(f => {
-                checkPageBreak(15);
-                doc.text(`• ${f["Facility Name"]} [${f["Priority Level"]}]`, margin + 5, y);
-                y += 5;
-                doc.setTextColor(80);
-                doc.text(`  ${f["Location / Address"]}`, margin + 5, y);
-                doc.setTextColor(0);
-                y += 7;
-            });
-        }
-
-    } else {
-        // Fallback for raw text
-        doc.setFontSize(10);
-        const lines = doc.splitTextToSize(report.textReport, pageWidth - (margin * 2));
-        doc.text(lines, margin, y);
-    }
-
-    doc.save(`CHTRA_Report_${new Date().toISOString().split('T')[0]}.pdf`);
-  };
-
-  const handleShare = async () => {
-    if (!userInput) return;
-
-    // Create a shareable URL containing the input parameters
-    // Using base64 encoding for simple obfuscation and URL safety
-    const encodedData = btoa(unescape(encodeURIComponent(JSON.stringify(userInput))));
-    const shareUrl = `${window.location.origin}${window.location.pathname}?share=${encodedData}`;
-
-    if (navigator.share) {
-        try {
-            await navigator.share({
-                title: 'CHTRA Health Assessment',
-                text: `Review this health risk assessment for a case in ${userInput.state}.`,
-                url: shareUrl
-            });
-        } catch (err) {
-            // If user cancelled or failed, fallback to clipboard
-             copyToClipboard(shareUrl);
-        }
-    } else {
-        copyToClipboard(shareUrl);
-    }
-  };
-
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-    setShowCopied(true);
-    setTimeout(() => setShowCopied(false), 2000);
-  };
-
-  const handleFeedback = (type: 'positive' | 'negative') => {
-    setFeedback(type);
-    console.log(`User feedback: ${type} for report generated at ${new Date().toISOString()}`);
-    // Here you would typically send this feedback to your backend or analytics service
-  };
-
   if (isLoading) {
     return (
-      <div className="bg-slate-800/30 border border-slate-700 rounded-lg p-12 flex flex-col items-center justify-center min-h-[600px] text-center">
-        <div className="relative">
-          <div className="absolute inset-0 bg-cyan-500 blur-xl opacity-20 rounded-full animate-pulse"></div>
-          <SpinnerIcon className="w-12 h-12 text-cyan-400 animate-spin relative z-10" />
-        </div>
-        <h3 className="mt-6 text-xl font-bold text-white">Analyzing Health Data</h3>
-        <p className="mt-2 text-slate-400 max-w-md">
-          Cross-referencing symptoms with environmental factors, active alerts, and facility capabilities...
-        </p>
+      <div className="flex flex-col items-center justify-center h-full min-h-[400px] text-slate-400">
+        <SpinnerIcon className="w-12 h-12 text-cyan-500 animate-spin mb-4" />
+        <p className="text-lg font-medium text-slate-300">Analyzing Health Data...</p>
+        <p className="text-sm mt-2 opacity-75">Cross-referencing symptoms with local alerts...</p>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="bg-red-900/20 border border-red-800 rounded-lg p-8 text-center">
-        <div className="inline-flex p-3 rounded-full bg-red-900/30 mb-4">
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-        </div>
-        <h3 className="text-xl font-bold text-red-400 mb-2">Analysis Failed</h3>
-        <p className="text-slate-300 mb-6">{error}</p>
+      <div className="flex flex-col items-center justify-center h-full min-h-[400px] text-red-400 p-8 text-center border-2 border-dashed border-red-900/50 rounded-lg bg-red-900/10">
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 mb-4 opacity-80" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+        </svg>
+        <h3 className="text-xl font-bold mb-2">Analysis Failed</h3>
+        <p className="text-slate-300 mb-4 max-w-md">{error}</p>
+        <p className="text-xs text-slate-500">Please check your connection and try again.</p>
       </div>
     );
   }
 
-  if (!report) {
+  if (!report || !report.parsedReport) {
     return <Placeholder />;
   }
 
-  // Format location context for the map
-  const locationContext = userInput 
-    ? `${userInput.lga !== 'All' ? userInput.lga + ', ' : ''}${userInput.state}` 
-    : 'Nigeria';
+  const locationContext = userInput.lga === 'All' 
+    ? `${userInput.state} State` 
+    : `${userInput.lga}, ${userInput.state}`;
 
   return (
-    <div className="bg-slate-800/50 border border-slate-700 rounded-lg shadow-xl overflow-hidden flex flex-col h-full max-h-[calc(100vh-8rem)]">
-      <div className="p-4 border-b border-slate-700 bg-slate-900/50 flex justify-between items-center">
-        <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-            <h2 className="font-semibold text-slate-200">Assessment Report</h2>
-        </div>
-        <div className="flex gap-2">
-            <button 
-                onClick={handleShare}
-                className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-slate-300 bg-slate-800 hover:bg-slate-700 hover:text-cyan-400 rounded border border-slate-600 transition-all relative"
-                title="Share Report Link"
-            >
-                <ShareIcon className="w-4 h-4" />
-                {showCopied ? "Link Copied!" : "Share"}
+    <div className="bg-slate-900 h-full overflow-y-auto custom-scrollbar rounded-lg border border-slate-800 shadow-2xl">
+      <div className="p-6 bg-slate-800/50 min-h-full">
+         <div className="flex justify-end gap-2 mb-4 no-print">
+            <button className="p-2 rounded hover:bg-slate-700 text-slate-400 hover:text-white transition-colors" title="Print Report" onClick={() => window.print()}>
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                </svg>
             </button>
-            <button 
-                onClick={handlePdfExport}
-                className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-slate-300 bg-slate-800 hover:bg-slate-700 hover:text-cyan-400 rounded border border-slate-600 transition-all"
-                title="Export as PDF"
-            >
-                <PdfIcon className="w-4 h-4" />
-                Export PDF
+            <button className="p-2 rounded hover:bg-slate-700 text-slate-400 hover:text-white transition-colors" title="Share" onClick={() => {
+                const data = btoa(unescape(encodeURIComponent(JSON.stringify(userInput))));
+                const url = `${window.location.origin}${window.location.pathname}?share=${data}`;
+                navigator.clipboard.writeText(url).then(() => alert('Link copied to clipboard!'));
+            }}>
+                <ShareIcon className="w-5 h-5" />
             </button>
-            <button 
-                onClick={handleDownload}
-                className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-slate-300 bg-slate-800 hover:bg-slate-700 hover:text-cyan-400 rounded border border-slate-600 transition-all"
-                title="Download Text Report"
-            >
-                <DownloadIcon className="w-4 h-4" />
-                Download
-            </button>
-        </div>
-      </div>
-      
-      <div className="p-6 overflow-y-auto custom-scrollbar">
-        {report.parsedReport ? (
-          <FormattedReport report={report.parsedReport} locationContext={locationContext} />
-        ) : (
-            <div className="prose prose-invert max-w-none">
-                <div className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-slate-300">
-                    {report.textReport}
-                </div>
-            </div>
-        )}
-        
-        {/* Feedback Section */}
-        <div className="mt-8 mb-4 flex flex-col items-center justify-center space-y-2">
-          <p className="text-xs text-slate-400">Was this report helpful?</p>
-          <div className="flex items-center gap-4">
-            <button 
-              onClick={() => handleFeedback('positive')}
-              disabled={feedback !== null}
-              className={`p-2 rounded-full transition-all duration-200 ${
-                feedback === 'positive' 
-                  ? 'bg-cyan-900/50 text-cyan-400 ring-1 ring-cyan-500' 
-                  : feedback === null 
-                    ? 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-cyan-400' 
-                    : 'bg-slate-800/50 text-slate-600 cursor-not-allowed'
-              }`}
-              aria-label="Thumbs up"
-            >
-              <ThumbsUpIcon className="w-5 h-5" />
-            </button>
-            <button 
-              onClick={() => handleFeedback('negative')}
-              disabled={feedback !== null}
-              className={`p-2 rounded-full transition-all duration-200 ${
-                feedback === 'negative' 
-                  ? 'bg-red-900/50 text-red-400 ring-1 ring-red-500' 
-                  : feedback === null 
-                    ? 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-red-400' 
-                    : 'bg-slate-800/50 text-slate-600 cursor-not-allowed'
-              }`}
-              aria-label="Thumbs down"
-            >
-              <ThumbsDownIcon className="w-5 h-5" />
-            </button>
-          </div>
-          {feedback && (
-            <p className="text-xs text-cyan-400 animate-in fade-in duration-300">
-              Thank you for your feedback!
-            </p>
-          )}
-        </div>
+         </div>
 
-        <div className="pt-6 border-t border-slate-700 text-xs text-slate-500 text-center">
-            Generated by CHTRA AI • {new Date().toLocaleString()} • Always seek professional medical guidance
-        </div>
+         <FormattedReport 
+            report={report.parsedReport} 
+            locationContext={locationContext}
+            patientName={userInput.patientName}
+            gender={userInput.gender}
+            environmentalFactors={userInput.context.factors}
+         />
       </div>
     </div>
   );

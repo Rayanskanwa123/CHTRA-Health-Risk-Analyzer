@@ -1,5 +1,7 @@
 
 export interface UserInput {
+  patientName: string;
+  gender: string;
   state: string;
   lga: string;
   symptoms: string;

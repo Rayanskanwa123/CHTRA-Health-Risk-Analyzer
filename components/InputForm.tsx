@@ -108,6 +108,36 @@ export const InputForm: React.FC<InputFormProps> = ({ userInput, onInputChange, 
     <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-6 shadow-lg h-full flex flex-col">
       <h2 className="text-2xl font-bold text-white mb-4">Case Details</h2>
       <form onSubmit={onSubmit} className="space-y-4 flex-1 overflow-y-auto pr-2 custom-scrollbar">
+        
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="md:col-span-2">
+            <label htmlFor="patientName" className="block text-sm font-medium text-cyan-400 mb-1">Patient Name</label>
+            <input
+              type="text"
+              id="patientName"
+              name="patientName"
+              value={userInput.patientName}
+              onChange={onInputChange}
+              placeholder="Enter patient name or ID"
+              className="w-full bg-slate-800 border border-slate-600 rounded-md shadow-sm py-2 px-3 text-slate-200 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 transition"
+            />
+          </div>
+          <div>
+            <label htmlFor="gender" className="block text-sm font-medium text-cyan-400 mb-1">Gender</label>
+            <select
+              id="gender"
+              name="gender"
+              value={userInput.gender}
+              onChange={onInputChange}
+              className="w-full bg-slate-800 border border-slate-600 rounded-md shadow-sm py-2 px-3 text-slate-200 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 transition"
+            >
+              <option value="Male">Male</option>
+              <option value="Female">Female</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label htmlFor="state" className="block text-sm font-medium text-cyan-400 mb-1">State</label>

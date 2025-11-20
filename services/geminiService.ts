@@ -43,7 +43,7 @@ const parseReportFromText = (text: string): ParsedReport | null => {
 
 
 export const generateHealthReport = async (userInput: UserInput): Promise<ReportData> => {
-  const { state, lga, symptoms, ageGroup, preExistingConditions, detailedHistory, context } = userInput;
+  const { patientName, gender, state, lga, symptoms, ageGroup, preExistingConditions, detailedHistory, context } = userInput;
 
   const location = lga === 'All'
     ? `${state} State (all local governments), Nigeria`
@@ -57,7 +57,7 @@ export const generateHealthReport = async (userInput: UserInput): Promise<Report
     - Allergies: ${detailedHistory.allergies || 'None'}
   ` : 'None';
 
-  const demographics = `Age Group: ${ageGroup || 'Not specified'}. 
+  const demographics = `Age Group: ${ageGroup || 'Not specified'}. Gender: ${gender || 'Not Specified'}.
   Summary of Major Conditions: ${preExistingConditions || 'None specified'}.
   Detailed Medical History: ${detailedHistoryText}`;
   
@@ -95,6 +95,8 @@ export const generateHealthReport = async (userInput: UserInput): Promise<Report
     - Suggest capacity requirements for an effective healthcare response.
 
     USER INPUT
+    Patient Name: ${patientName || 'Not Specified'}
+    Gender: ${gender || 'Not Specified'}
     Current Location: ${location}
     Reported Symptoms: ${symptoms}
     Demographic & History: ${demographics}

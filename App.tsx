@@ -8,12 +8,23 @@ import { LandingPage } from './components/LandingPage';
 import { generateHealthReport } from './services/geminiService';
 import type { UserInput, ReportData, SavedReport } from './types';
 
-const STORAGE_KEY = 'chtra_history';
+const HISTORY_KEY = 'chtra_history';
+const SESSION_KEY = 'chtra_session';
 
 const App: React.FC = () => {
-  const [user, setUser] = useState<{ name: string; email: string } | null>(null);
+  // Initialize user from local storage to persist session across refreshes
+  const [user, setUser] = useState<{ name: string; email: string } | null>(() => {
+    try {
+      const savedSession = localStorage.getItem(SESSION_KEY);
+      return savedSession ? JSON.parse(savedSession) : null;
+    } catch (e) {
+      return null;
+    }
+  });
 
   const [userInput, setUserInput] = useState<UserInput>({
+    patientName: '',
+    gender: 'Male',
     state: 'Bauchi',
     lga: 'All',
     symptoms: 'Severe abdominal pain, persistent vomiting, extreme fatigue, and profuse, watery diarrhea.',
@@ -40,7 +51,7 @@ const App: React.FC = () => {
   // Load history from local storage on mount
   useEffect(() => {
     try {
-      const saved = localStorage.getItem(STORAGE_KEY);
+      const saved = localStorage.getItem(HISTORY_KEY);
       if (saved) {
         setHistory(JSON.parse(saved));
       }
@@ -48,6 +59,15 @@ const App: React.FC = () => {
       console.error("Failed to load history", e);
     }
   }, []);
+
+  // Persist user session changes
+  useEffect(() => {
+    if (user) {
+      localStorage.setItem(SESSION_KEY, JSON.stringify(user));
+    } else {
+      localStorage.removeItem(SESSION_KEY);
+    }
+  }, [user]);
 
   // Handle Shared URL Parameters
   useEffect(() => {
@@ -57,7 +77,7 @@ const App: React.FC = () => {
       try {
         // Decode base64 -> unescape -> json parse
         const decodedInput = JSON.parse(decodeURIComponent(escape(atob(shareData))));
-        // Ensure detailedHistory exists for backward compatibility with older shares
+        // Ensure fields exist for backward compatibility
         if (!decodedInput.detailedHistory) {
             decodedInput.detailedHistory = {
                 pastDiagnoses: '',
@@ -66,15 +86,28 @@ const App: React.FC = () => {
                 allergies: ''
             };
         }
+        if (!decodedInput.patientName) {
+            decodedInput.patientName = '';
+        }
+        if (!decodedInput.gender) {
+            decodedInput.gender = 'Male';
+        }
         setUserInput(decodedInput);
-        // If coming from a share link, we might want to auto-login or show the app
-        // For this demo, let's auto-login a guest if a share link is present
-        setUser({ name: 'Guest User', email: 'guest@chtra.com' });
+        // If coming from a share link, auto-login as guest if not already logged in
+        if (!user) {
+             setUser({ name: 'Guest User', email: 'guest@chtra.com' });
+        }
       } catch (e) {
         console.error("Failed to parse shared data", e);
       }
     }
   }, []);
+
+  const handleLogout = () => {
+    setUser(null);
+    setReport(null);
+    // Session storage clearing is handled by the useEffect
+  };
 
   const saveToHistory = (newReport: ReportData, input: UserInput) => {
     const newItem: SavedReport = {
@@ -86,17 +119,17 @@ const App: React.FC = () => {
 
     const updatedHistory = [newItem, ...history].slice(0, 50); // Cap at 50
     setHistory(updatedHistory);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedHistory));
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(updatedHistory));
   };
 
   const handleDeleteHistory = (id: string) => {
     const updated = history.filter(h => h.id !== id);
     setHistory(updated);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(updated));
   };
 
   const handleLoadHistory = (item: SavedReport) => {
-    // Ensure detailedHistory structure exists when loading old reports
+    // Ensure structure exists when loading old reports
     const loadedInput = item.userInput;
     if (!loadedInput.detailedHistory) {
         loadedInput.detailedHistory = {
@@ -105,6 +138,12 @@ const App: React.FC = () => {
             familyHistory: '',
             allergies: ''
         };
+    }
+    if (!loadedInput.patientName) {
+        loadedInput.patientName = '';
+    }
+    if (!loadedInput.gender) {
+        loadedInput.gender = 'Male';
     }
     setUserInput(loadedInput);
     setReport(item.reportData);
@@ -179,7 +218,11 @@ const App: React.FC = () => {
     <div className="min-h-screen bg-slate-900 text-slate-200 font-sans overflow-hidden flex flex-col">
       <div className="flex-shrink-0 p-4 sm:p-6 border-b border-slate-800 bg-slate-900 z-10">
          <div className="max-w-7xl mx-auto">
-            <Header onHistoryClick={() => setIsHistoryOpen(true)} />
+            <Header 
+                onHistoryClick={() => setIsHistoryOpen(true)} 
+                onLogout={handleLogout}
+                user={user}
+            />
          </div>
       </div>
       

@@ -86,6 +86,7 @@ export const generateHealthReport = async (userInput: UserInput): Promise<Report
     - Generate specific, data-driven public health intervention proposals.
     - Provide emergency response planning guidance based on the synthesis of all available data.
     - Consider user's specific medical history (allergies, past surgeries, etc.) when suggesting first aid or treatments (e.g., flag allergy risks).
+    - Recommend specific laboratory tests that would help confirm the diagnosis or rule out differentials (e.g., RDT for Malaria, Stool Culture for Cholera).
 
     4. EMERGENCY RESPONSE PROTOCOL:
     For high-severity alerts, you must automatically:
@@ -537,6 +538,7 @@ export const generateHealthReport = async (userInput: UserInput): Promise<Report
         riskLevel: 'LOW' | 'MODERATE' | 'HIGH' | 'CRITICAL' | 'UNKNOWN';
         diagnoses: { name: string; confidence: number; rationale: string; }[];
         urgentActionPlan: string;
+        labTests: { testName: string; reason: string; priority: 'Routine' | 'Urgent'; }[];
         firstAid: string[];
         preventiveMeasures: string[];
         contacts: { Service: string; Number: string; Notes: string; }[];

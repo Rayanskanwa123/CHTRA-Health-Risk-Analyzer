@@ -42,10 +42,17 @@ export interface MedicalFacility {
   "Priority Level": string;
 }
 
+export interface LabTest {
+  testName: string;
+  reason: string;
+  priority: 'Routine' | 'Urgent';
+}
+
 export interface ParsedReport {
   riskLevel: 'LOW' | 'MODERATE' | 'HIGH' | 'CRITICAL' | 'UNKNOWN';
   diagnoses: Diagnosis[];
   urgentActionPlan: string;
+  labTests: LabTest[];
   firstAid: string[];
   preventiveMeasures: string[];
   contacts: ResourceContact[];

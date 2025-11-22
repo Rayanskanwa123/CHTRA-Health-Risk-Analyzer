@@ -13,6 +13,7 @@ import { JsonIcon } from './icons/JsonIcon';
 import { ExternalLinkIcon } from './icons/ExternalLinkIcon';
 import { ThumbsUpIcon } from './icons/ThumbsUpIcon';
 import { ThumbsDownIcon } from './icons/ThumbsDownIcon';
+import { LabIcon } from './icons/LabIcon';
 import { DiagnosisChart, RiskGauge, FacilityPriorityChart } from './Visualizations';
 import { jsPDF } from "jspdf";
 
@@ -225,6 +226,42 @@ const FormattedReport: React.FC<{
             </div>
         </div>
       </div>
+      
+      {/* Recommended Lab Tests Section */}
+      {report.labTests && report.labTests.length > 0 && (
+        <div>
+           <div className="flex items-center gap-2 mb-3">
+             <LabIcon className="w-5 h-5 text-purple-400" />
+             <h3 className="text-lg font-semibold text-white">Recommended Laboratory Tests</h3>
+           </div>
+           <div className="bg-slate-800 border border-slate-700 rounded-lg overflow-hidden">
+              <table className="w-full text-left text-sm text-slate-400">
+                  <thead className="bg-slate-900/50 text-slate-200 uppercase font-medium text-xs">
+                    <tr>
+                      <th className="px-4 py-3">Test Name</th>
+                      <th className="px-4 py-3">Priority</th>
+                      <th className="px-4 py-3">Reason</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-700">
+                    {report.labTests.map((test, i) => (
+                      <tr key={i} className="hover:bg-slate-700/30">
+                        <td className="px-4 py-3 font-medium text-slate-300">{test.testName}</td>
+                        <td className="px-4 py-3">
+                          <span className={`px-2 py-0.5 rounded text-xs ${
+                            test.priority === 'Urgent' ? 'bg-red-900/30 text-red-400 border border-red-900/50' : 'bg-slate-700 text-slate-300 border border-slate-600'
+                          }`}>
+                            {test.priority}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-slate-400">{test.reason}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+              </table>
+           </div>
+        </div>
+      )}
 
       {/* Facilities Section */}
       <div>
@@ -517,6 +554,28 @@ export const ReportDisplay: React.FC<ReportDisplayProps> = ({ report, isLoading,
         const planLines = doc.splitTextToSize(data.urgentActionPlan, pageWidth - (margin * 2));
         doc.text(planLines, margin, y);
         y += (planLines.length * 5) + 5;
+
+        // Lab Tests
+        if (data.labTests && data.labTests.length > 0) {
+            checkPageBreak(30);
+            y += 5;
+            doc.setFontSize(12);
+            doc.setFont(undefined, 'bold');
+            doc.text("Recommended Laboratory Tests", margin, y);
+            y += 7;
+            doc.setFont(undefined, 'normal');
+            doc.setFontSize(10);
+            data.labTests.forEach(t => {
+              checkPageBreak(15);
+              doc.text(`• ${t.testName} [${t.priority}]`, margin + 5, y);
+              y += 5;
+              doc.setTextColor(80);
+              const reason = doc.splitTextToSize(t.reason, pageWidth - (margin * 2) - 5);
+              doc.text(reason, margin + 5, y);
+              doc.setTextColor(0);
+              y += (reason.length * 5) + 3;
+            });
+        }
 
         // Facilities
         if (data.facilities.length > 0) {

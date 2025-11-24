@@ -1,11 +1,12 @@
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { Header } from './components/Header';
 import { InputForm } from './components/InputForm';
 import { ReportDisplay } from './components/ReportDisplay';
 import { HistoryModal } from './components/HistoryModal';
 import { LandingPage } from './components/LandingPage';
 import { generateHealthReport } from './services/geminiService';
+import { getLanguagesForLocation } from './data/languageData';
 import type { UserInput, ReportData, SavedReport } from './types';
 
 const HISTORY_KEY = 'chtra_history';
@@ -47,6 +48,9 @@ const App: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [history, setHistory] = useState<SavedReport[]>([]);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  
+  // Language State
+  const [appLanguage, setAppLanguage] = useState<string>('English');
 
   // Load history from local storage on mount
   useEffect(() => {
@@ -68,6 +72,13 @@ const App: React.FC = () => {
       localStorage.removeItem(SESSION_KEY);
     }
   }, [user]);
+
+  // Determine available languages based on location
+  const availableLanguages = useMemo(() => {
+    const localLangs = getLanguagesForLocation(userInput.state, userInput.lga);
+    // Ensure English is always first, then local languages, then common fallbacks
+    return Array.from(new Set(['English', ...localLangs, 'Hausa', 'Yoruba', 'Igbo', 'Pidgin']));
+  }, [userInput.state, userInput.lga]);
 
   // Handle Shared URL Parameters
   useEffect(() => {
@@ -222,6 +233,9 @@ const App: React.FC = () => {
                 onHistoryClick={() => setIsHistoryOpen(true)} 
                 onLogout={handleLogout}
                 user={user}
+                language={appLanguage}
+                setLanguage={setAppLanguage}
+                availableLanguages={availableLanguages}
             />
          </div>
       </div>
@@ -233,6 +247,7 @@ const App: React.FC = () => {
                 onInputChange={handleInputChange}
                 onSubmit={handleSubmit}
                 isLoading={isLoading}
+                language={appLanguage}
             />
           </div>
           <div className="h-full overflow-y-auto custom-scrollbar pb-20 lg:pb-0 mt-6 lg:mt-0">
@@ -241,6 +256,7 @@ const App: React.FC = () => {
                 isLoading={isLoading}
                 error={error}
                 userInput={userInput}
+                language={appLanguage}
             />
           </div>
       </main>

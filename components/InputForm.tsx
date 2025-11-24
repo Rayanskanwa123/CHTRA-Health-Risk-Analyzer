@@ -67,9 +67,10 @@ interface InputFormProps {
   onInputChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => void;
   onSubmit: (e: React.FormEvent) => void;
   isLoading: boolean;
+  language?: string;
 }
 
-export const InputForm: React.FC<InputFormProps> = ({ userInput, onInputChange, onSubmit, isLoading }) => {
+export const InputForm: React.FC<InputFormProps> = ({ userInput, onInputChange, onSubmit, isLoading, language }) => {
   const [symptomSuggestions, setSymptomSuggestions] = useState<string[]>([]);
   const [isMedicalHistoryOpen, setIsMedicalHistoryOpen] = useState(false);
   

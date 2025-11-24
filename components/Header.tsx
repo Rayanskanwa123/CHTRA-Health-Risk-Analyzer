@@ -2,14 +2,25 @@
 import React from 'react';
 import { AlertIcon } from './icons/AlertIcon';
 import { HistoryIcon } from './icons/HistoryIcon';
+import { TranslateIcon } from './icons/TranslateIcon';
 
 interface HeaderProps {
   onHistoryClick?: () => void;
   onLogout?: () => void;
   user?: { name: string; email: string } | null;
+  language?: string;
+  setLanguage?: (lang: string) => void;
+  availableLanguages?: string[];
 }
 
-export const Header: React.FC<HeaderProps> = ({ onHistoryClick, onLogout, user }) => {
+export const Header: React.FC<HeaderProps> = ({ 
+  onHistoryClick, 
+  onLogout, 
+  user,
+  language = 'English',
+  setLanguage,
+  availableLanguages = ['English']
+}) => {
   return (
     <header className="flex flex-col md:flex-row items-center justify-between gap-4 border-b border-slate-800 pb-6">
       <div className="text-center md:text-left">
@@ -30,6 +41,28 @@ export const Header: React.FC<HeaderProps> = ({ onHistoryClick, onLogout, user }
 
       <div className="flex flex-col items-end gap-2">
         <div className="flex items-center gap-2">
+            
+            {setLanguage && (
+              <div className="relative mr-2">
+                <div className="absolute inset-y-0 left-0 flex items-center pl-2 pointer-events-none text-slate-500">
+                  <TranslateIcon className="w-3 h-3" />
+                </div>
+                <select
+                  value={language}
+                  onChange={(e) => setLanguage(e.target.value)}
+                  className="bg-slate-900 border border-slate-700 text-slate-300 text-xs rounded-lg focus:ring-cyan-500 focus:border-cyan-500 block w-full pl-7 pr-8 py-1.5 appearance-none hover:bg-slate-800 transition-colors cursor-pointer"
+                  title="Select Application Language"
+                >
+                  {availableLanguages.map(lang => (
+                    <option key={lang} value={lang}>{lang}</option>
+                  ))}
+                </select>
+                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-slate-500">
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                </div>
+              </div>
+            )}
+
             {user && (
                 <div className="hidden md:flex flex-col items-end mr-2 border-r border-slate-700 pr-3">
                     <span className="text-[10px] text-slate-500 uppercase tracking-wider">Logged in as</span>

@@ -14,8 +14,11 @@ import { ExternalLinkIcon } from './icons/ExternalLinkIcon';
 import { ThumbsUpIcon } from './icons/ThumbsUpIcon';
 import { ThumbsDownIcon } from './icons/ThumbsDownIcon';
 import { LabIcon } from './icons/LabIcon';
+import { TranslateIcon } from './icons/TranslateIcon';
 import { DiagnosisChart, RiskGauge, FacilityPriorityChart } from './Visualizations';
 import { jsPDF } from "jspdf";
+import { getLanguagesForLocation } from '../data/languageData';
+import { translateReportContent } from '../services/geminiService';
 
 const Placeholder: React.FC = () => (
     <div className="text-center p-8 border-2 border-dashed border-slate-600 rounded-lg h-full flex flex-col justify-center items-center min-h-[400px]">
@@ -316,7 +319,21 @@ const FormattedReport: React.FC<{
                           }`}
                           title={f["Location / Address"]}
                         >
-                            <td className="px-4 py-3 font-medium text-slate-300">{f["Facility Name"]}</td>
+                            <td className="px-4 py-3 font-medium text-slate-300">
+                                <div className="flex items-center gap-2">
+                                    <span>{f["Facility Name"]}</span>
+                                    <a 
+                                        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(f["Facility Name"] + " " + f["Location / Address"])}`}
+                                        target="_blank" 
+                                        rel="noopener noreferrer"
+                                        className="text-slate-500 hover:text-cyan-400 transition-colors"
+                                        onClick={(e) => e.stopPropagation()}
+                                        title="View on Google Maps"
+                                    >
+                                        <ExternalLinkIcon className="w-3 h-3" />
+                                    </a>
+                                </div>
+                            </td>
                             <td className="px-4 py-3">{f["Location / Address"]}</td>
                             <td className="px-4 py-3">
                                 <span className={`px-2 py-0.5 rounded text-xs ${f["Priority Level"] === 'High' ? 'bg-red-900/30 text-red-400' : 'bg-slate-700 text-slate-300'}`}>
@@ -449,9 +466,34 @@ interface ReportDisplayProps {
   isLoading: boolean;
   error: string | null;
   userInput: UserInput;
+  language?: string;
 }
 
-export const ReportDisplay: React.FC<ReportDisplayProps> = ({ report, isLoading, error, userInput }) => {
+export const ReportDisplay: React.FC<ReportDisplayProps> = ({ report, isLoading, error, userInput, language }) => {
+  const [showTranslateModal, setShowTranslateModal] = useState(false);
+  const [translationLanguage, setTranslationLanguage] = useState('');
+  const [translatedText, setTranslatedText] = useState<string | null>(null);
+  const [isTranslating, setIsTranslating] = useState(false);
+  const [availableLanguages, setAvailableLanguages] = useState<string[]>([]);
+
+  // Identify possible languages based on location
+  useEffect(() => {
+    if (userInput.state) {
+      const langs = getLanguagesForLocation(userInput.state, userInput.lga);
+      const combinedLangs = [...new Set([...langs, 'Hausa', 'Yoruba', 'Igbo', 'Pidgin'])];
+      setAvailableLanguages(combinedLangs);
+    }
+  }, [userInput.state, userInput.lga]);
+
+  // Update translation language if global language changes and matches available options,
+  // or defaults to the global language if no specific choice is made yet.
+  useEffect(() => {
+     if (language) {
+         setTranslationLanguage(language);
+     }
+  }, [language]);
+
+
   const handleDownload = () => {
     if (!report) return;
     
@@ -625,6 +667,25 @@ export const ReportDisplay: React.FC<ReportDisplayProps> = ({ report, isLoading,
     navigator.clipboard.writeText(url).then(() => alert('Link copied to clipboard!'));
   };
 
+  const handleTranslate = async () => {
+      if (!report?.parsedReport) return;
+      
+      setIsTranslating(true);
+      setShowTranslateModal(true);
+      setTranslatedText(null); // Reset previous translation
+      
+      try {
+          // Construct a summary to translate
+          const summary = `Risk Level: ${report.parsedReport.riskLevel}. Likely Diagnoses: ${report.parsedReport.diagnoses.map(d => d.name).join(', ')}. Action Plan: ${report.parsedReport.urgentActionPlan}. First Aid: ${report.parsedReport.firstAid.join('. ')}.`;
+          const translation = await translateReportContent(summary, translationLanguage);
+          setTranslatedText(translation);
+      } catch (e) {
+          setTranslatedText("Error translating report. Please try again.");
+      } finally {
+          setIsTranslating(false);
+      }
+  };
+
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center h-full min-h-[400px] text-slate-400">
@@ -657,9 +718,17 @@ export const ReportDisplay: React.FC<ReportDisplayProps> = ({ report, isLoading,
     : `${userInput.lga}, ${userInput.state}`;
 
   return (
-    <div className="bg-slate-900 h-full overflow-y-auto custom-scrollbar rounded-lg border border-slate-800 shadow-2xl">
+    <div className="bg-slate-900 h-full overflow-y-auto custom-scrollbar rounded-lg border border-slate-800 shadow-2xl relative">
       <div className="p-6 bg-slate-800/50 min-h-full">
          <div className="flex justify-end gap-2 mb-4 no-print">
+             <button 
+                className="p-2 rounded hover:bg-slate-700 text-slate-400 hover:text-white transition-colors relative group" 
+                title="Translate Report" 
+                onClick={() => setShowTranslateModal(true)}
+            >
+                <TranslateIcon className="w-5 h-5" />
+                <span className="absolute top-full right-0 mt-1 bg-slate-900 text-slate-300 text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 whitespace-nowrap border border-slate-700">Translate</span>
+            </button>
             <button 
                 className="p-2 rounded hover:bg-slate-700 text-slate-400 hover:text-white transition-colors" 
                 title="Share Link" 
@@ -711,6 +780,81 @@ export const ReportDisplay: React.FC<ReportDisplayProps> = ({ report, isLoading,
             Generated by CHTRA AI • {new Date().toLocaleString()} • Always seek professional medical guidance.
         </div>
       </div>
+
+      {/* Translation Modal */}
+      {showTranslateModal && (
+          <div className="absolute inset-0 bg-slate-900/95 backdrop-blur-sm z-50 flex items-center justify-center p-6 animate-in fade-in">
+              <div className="bg-slate-800 border border-slate-700 rounded-xl shadow-2xl w-full max-w-lg flex flex-col max-h-full">
+                  <div className="p-4 border-b border-slate-700 flex justify-between items-center">
+                      <div className="flex items-center gap-2 text-cyan-400">
+                        <TranslateIcon className="w-5 h-5" />
+                        <h3 className="font-bold">Translate Assessment</h3>
+                      </div>
+                      <button onClick={() => setShowTranslateModal(false)} className="text-slate-500 hover:text-white">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                          </svg>
+                      </button>
+                  </div>
+                  
+                  <div className="p-6 space-y-4 overflow-y-auto">
+                      <div>
+                          <label htmlFor="language-select" className="block text-xs text-slate-500 uppercase font-bold mb-2">Target Language</label>
+                          <div className="relative">
+                            <select
+                                id="language-select"
+                                value={translationLanguage}
+                                onChange={(e) => setTranslationLanguage(e.target.value)}
+                                className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 focus:ring-2 focus:ring-cyan-500 focus:border-transparent outline-none appearance-none cursor-pointer hover:bg-slate-800 transition-colors"
+                            >
+                                {availableLanguages.map(lang => (
+                                    <option key={lang} value={lang} className="bg-slate-900 py-1">{lang}</option>
+                                ))}
+                            </select>
+                            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-slate-400">
+                                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                            </div>
+                          </div>
+                          <p className="text-[10px] text-slate-500 mt-1">Languages suggested based on {userInput.state} / {userInput.lga}</p>
+                      </div>
+
+                      <div className="bg-slate-900 rounded-lg p-4 min-h-[200px] border border-slate-700">
+                          {isTranslating ? (
+                              <div className="flex flex-col items-center justify-center h-full text-slate-500 gap-3">
+                                  <SpinnerIcon className="w-8 h-8 animate-spin text-cyan-500" />
+                                  <span className="text-sm">Translating to {translationLanguage}...</span>
+                              </div>
+                          ) : translatedText ? (
+                              <div className="prose prose-invert prose-sm max-w-none">
+                                  <p className="text-slate-300 leading-relaxed whitespace-pre-wrap">{translatedText}</p>
+                              </div>
+                          ) : (
+                              <div className="flex flex-col items-center justify-center h-full text-slate-600 gap-2">
+                                  <TranslateIcon className="w-8 h-8 opacity-50" />
+                                  <span className="text-sm">Select a language and click translate</span>
+                              </div>
+                          )}
+                      </div>
+                  </div>
+                  
+                  <div className="p-4 border-t border-slate-700 flex justify-end gap-3 bg-slate-800/50">
+                      <button 
+                          onClick={() => setShowTranslateModal(false)}
+                          className="px-4 py-2 text-sm text-slate-400 hover:text-white transition-colors"
+                      >
+                          Close
+                      </button>
+                      <button 
+                          onClick={handleTranslate}
+                          disabled={isTranslating}
+                          className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 disabled:bg-slate-700 text-white text-sm font-bold rounded-lg transition-colors flex items-center gap-2"
+                      >
+                          {isTranslating ? 'Translating...' : 'Translate Report'}
+                      </button>
+                  </div>
+              </div>
+          </div>
+      )}
     </div>
   );
 };

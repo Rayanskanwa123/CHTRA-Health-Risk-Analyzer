@@ -1,6 +1,7 @@
 
 import { GoogleGenAI } from "@google/genai";
 import type { UserInput, ReportData, ParsedReport } from '../types';
+import { facilityData } from '../data/facilityData';
 
 // Safe access to API key to prevent runtime crashes in browsers where 'process' is not defined
 const getApiKey = (): string => {
@@ -49,6 +50,30 @@ export const generateHealthReport = async (userInput: UserInput): Promise<Report
     ? `${state} State (all local governments), Nigeria`
     : `${lga}, ${state} State, Nigeria`;
 
+  // Filter facilities based on location
+  const relevantFacilities = facilityData.filter(f => f.State === state);
+  const prioritizedFacilities = lga !== 'All' 
+    ? relevantFacilities.filter(f => f.LGA === lga || f.LGA === 'All') // Get LGA specific + State capitals often marked
+    : relevantFacilities;
+  
+  // If no LGA specific facilities, fallback to state facilities
+  const facilitiesToInclude = prioritizedFacilities.length > 0 ? prioritizedFacilities : relevantFacilities;
+
+  // SORTING LOGIC: Prioritize "Primary Health Centre"
+  const sortedFacilities = [...facilitiesToInclude].sort((a, b) => {
+    const isAPrimary = a.Type.includes("Primary Health") || a.Name.includes("Primary Health");
+    const isBPrimary = b.Type.includes("Primary Health") || b.Name.includes("Primary Health");
+
+    if (isAPrimary && !isBPrimary) return -1; // A comes first
+    if (!isAPrimary && isBPrimary) return 1;  // B comes first
+    return 0; // Keep original order
+  });
+
+  // Cap at 25 to avoid token limits, but now PHCs are at the top
+  const facilitiesContext = sortedFacilities.slice(0, 25).map(f => 
+    `"${f.Name}" (${f.Type}) - ${f.Address}`
+  ).join('\n');
+
   // Format detailed medical history
   const detailedHistoryText = detailedHistory ? `
     - Past Diagnoses: ${detailedHistory.pastDiagnoses || 'None'}
@@ -94,6 +119,12 @@ export const generateHealthReport = async (userInput: UserInput): Promise<Report
     - Describe how environmental factors may be exacerbating the situation.
     - Recommend specific preventive measures for the community.
     - Suggest capacity requirements for an effective healthcare response.
+    
+    5. FACILITY RECOMMENDATION:
+    - You have been provided with a "MODULE 4: AVAILABLE LOCAL FACILITIES" section below.
+    - You MUST prioritize recommending facilities listed in MODULE 4 if they are relevant to the user's location (${lga}, ${state}).
+    - IMPORTANT: Prioritize "Primary Health Centres" for initial stabilization, non-emergency care, and preventive measures. Only recommend Specialist/Teaching Hospitals for critical or complex cases requiring advanced intervention.
+    - If the user's specific LGA has facilities listed, use them. If not, suggest major General Hospitals or Federal Medical Centres in the ${state} state capital.
 
     USER INPUT
     Patient Name: ${patientName || 'Not Specified'}
@@ -529,6 +560,10 @@ export const generateHealthReport = async (userInput: UserInput): Promise<Report
     Kano,Wudil,Arid Area
     Katsina,Bakori,Arid Area
     
+    MODULE 4: AVAILABLE LOCAL FACILITIES (Use these for recommendations)
+    Name,Type,Address
+    ${facilitiesContext}
+
     --- OUTPUT INSTRUCTIONS ---
     1. Provide a comprehensive, empathetic, and clear text-based risk assessment first. This should be human-readable.
     2. After the text report, you MUST provide a single JSON code block that starts with \`\`\`json and ends with \`\`\`.
@@ -562,3 +597,28 @@ export const generateHealthReport = async (userInput: UserInput): Promise<Report
     parsedReport,
   };
 };
+
+export const translateReportContent = async (summary: string, targetLanguage: string): Promise<string> => {
+  const prompt = `
+    You are a medical translator for rural Nigeria. 
+    Translate the following medical summary/action plan into ${targetLanguage}.
+    
+    Keep the tone urgent but empathetic. 
+    Use local terminology where appropriate for a layperson in that region, but ensure medical accuracy.
+    Do not add any intro or outro text, just the translation.
+
+    TEXT TO TRANSLATE:
+    "${summary}"
+  `;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-pro-preview',
+      contents: prompt,
+    });
+    return response.text;
+  } catch (error) {
+    console.error("Translation failed", error);
+    throw new Error("Failed to translate content.");
+  }
+}

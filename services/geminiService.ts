@@ -13,7 +13,7 @@ const getApiKey = (): string => {
     console.warn("Error accessing process.env");
   }
   // Fallback to the provided key for the deployment to work immediately
-  return 'AIzaSyCE8E59HNq9Y4O05vGqvZYfCCK5ek3Briw';
+  return 'AIzaSyAIWiS59V0Iv6joUoDh2pliXryCF1f4I54';
 };
 
 const API_KEY = getApiKey();

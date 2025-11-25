@@ -23,6 +23,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginSuccess }) => {
   // Signup State
   const [signupName, setSignupName] = useState('');
   const [signupEmail, setSignupEmail] = useState('');
+  const [signupLicense, setSignupLicense] = useState('');
   const [signupPassword, setSignupPassword] = useState('');
   const [signupError, setSignupError] = useState('');
 
@@ -62,9 +63,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginSuccess }) => {
     e.preventDefault();
     setSignupError('');
 
-    if (signupName && signupEmail && signupPassword) {
+    if (signupName && signupEmail && signupPassword && signupLicense) {
        const normalizedEmail = signupEmail.trim().toLowerCase();
        const normalizedPassword = signupPassword.trim();
+       const normalizedLicense = signupLicense.trim();
 
        try {
            const storedUsers = JSON.parse(localStorage.getItem('chtra_users') || '[]');
@@ -78,6 +80,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginSuccess }) => {
            const newUser = { 
                name: signupName, 
                email: normalizedEmail, 
+               license: normalizedLicense,
                password: normalizedPassword 
            };
 
@@ -354,6 +357,17 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginSuccess }) => {
                   placeholder="Dr. John Doe"
                   value={signupName}
                   onChange={(e) => setSignupName(e.target.value)}
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-400 mb-1">Medical License ID</label>
+                <input 
+                  type="text" 
+                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-cyan-500 focus:border-transparent outline-none"
+                  placeholder="MD-12345-NG"
+                  value={signupLicense}
+                  onChange={(e) => setSignupLicense(e.target.value)}
                   required
                 />
               </div>
